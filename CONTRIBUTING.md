@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Proppy! As an experimental projec
 
 ## How to Contribute
 
-1. **Fork the Repository**: Start by forking the [Proppy repository](link_to_proppy_repo) on GitHub.
+1. **Fork the Repository**: Start by forking the Proppy repository on GitHub.
 
 2. **Clone the Repository**: Clone your forked repository to your local machine using the following command:
    ```bash
