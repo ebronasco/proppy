@@ -39,7 +39,10 @@ class SyntaxNode(ABC):
 
         return SyntaxBranch(Append, children=[self])
 
-    def __or__(self, other: "SyntaxNode" | PassAlias) -> "SyntaxNode":
+    def __or__(
+            self,
+            other: t.Union["SyntaxNode", PassAlias],
+    ) -> "SyntaxNode":
         # Import here to avoid circular import.
         from .combine import Compose  # pylint: disable=import-outside-toplevel
 
@@ -49,7 +52,10 @@ class SyntaxNode(ABC):
 
         return compose
 
-    def __ror__(self, other: "SyntaxNode" | PassAlias) -> "SyntaxNode":
+    def __ror__(
+            self,
+            other: t.Union["SyntaxNode", PassAlias],
+    ) -> "SyntaxNode":
         # Import here to avoid circular import.
         from .combine import Compose  # pylint: disable=import-outside-toplevel
 
@@ -59,7 +65,10 @@ class SyntaxNode(ABC):
 
         return compose
 
-    def __and__(self, other: "SyntaxNode" | PassAlias) -> "SyntaxNode":
+    def __and__(
+            self,
+            other: t.Union["SyntaxNode", PassAlias],
+    ) -> "SyntaxNode":
         # Import here to avoid circular import.
         from .combine import Concat  # pylint: disable=import-outside-toplevel
 
@@ -69,7 +78,10 @@ class SyntaxNode(ABC):
 
         return concat
 
-    def __rand__(self, other: "SyntaxNode" | PassAlias) -> "SyntaxNode":
+    def __rand__(
+            self,
+            other: t.Union["SyntaxNode", PassAlias],
+    ) -> "SyntaxNode":
         # Import here to avoid circular import.
         from .combine import Concat  # pylint: disable=import-outside-toplevel
 
@@ -86,9 +98,13 @@ class SyntaxNode(ABC):
 class SyntaxLeaf(SyntaxNode):
     """Wraps operations."""
 
-    def __init__(self, operation: "Operation" | PassAlias):
+    def __init__(
+            self,
+            operation: t.Union["Operation", PassAlias],
+    ):
         # Import here to avoid circular import.
-        from .base import ensure_operation  # pylint: disable=import-outside-toplevel
+        # pylint: disable=import-outside-toplevel
+        from .base import ensure_operation
 
         operation = ensure_operation(operation)
 
@@ -111,12 +127,12 @@ class SyntaxBranch(SyntaxNode):
     """Wraps combinations of operations, that is, Concat, Compose, Append."""
 
     def __init__(
-        self,
-        operation_class: t.Type["Operation"],
-        children: t.Optional[Iterable] = None,
+            self,
+            operation_class: t.Type["Operation"],
+            children: t.Optional[t.Iterable] = None,
     ):
         self.operation_class = operation_class
-        self.children: Iterable = {}
+        self.children: t.Iterable = {}
 
         if children is not None:
             if not isinstance(children, Iterable):
@@ -165,10 +181,10 @@ class SwitchNode(SyntaxNode):
     """Wraps the `Switch` combination."""
 
     def __init__(
-        self,
-        key: KeyPath,
-        cases: Iterable[t.Tuple[t.Any, SyntaxNode]],
-        default: t.Optional[SyntaxNode] = None,
+            self,
+            key: KeyPath,
+            cases: t.Iterable[t.Tuple[t.Any, SyntaxNode]],
+            default: t.Optional[SyntaxNode] = None,
     ):
         self.key = key
         self.cases = cases
@@ -199,10 +215,10 @@ class SwitchNode(SyntaxNode):
 
 
 def switch(
-    key: KeyPath,
-    *cases,
-    default: t.Optional[SyntaxNode | PassAlias] = None,
-):
+        key: KeyPath,
+        *cases,
+        default: t.Optional[t.Union[SyntaxNode, PassAlias]] = None,
+) -> SwitchNode:
     """Creates a `SwitchNode`."""
 
     cases_ensured = [(c, ensure_syntax_node(o)) for c, o in cases]
@@ -224,7 +240,7 @@ class CycleNode(SyntaxNode):
 
     def __init__(
         self,
-        operation: SyntaxNode | PassAlias,
+        operation: t.Union[SyntaxNode, PassAlias],
         counter: t.Optional[int] = -1,
         key: t.Optional[KeyPath] = None,
     ):
@@ -253,10 +269,10 @@ class CycleNode(SyntaxNode):
 
 
 def cycle(
-    operation: SyntaxNode | PassAlias,
-    counter: t.Optional[int] = -1,
-    key: t.Optional[KeyPath] = None,
-):
+        operation: t.Union[SyntaxNode, PassAlias],
+        counter: t.Optional[int] = -1,
+        key: t.Optional[KeyPath] = None,
+) -> CycleNode:
     """Creates a `CycleNode`."""
     operation = ensure_syntax_node(operation)
 
@@ -267,10 +283,13 @@ def cycle(
     )
 
 
-def ensure_syntax_node(obj: SyntaxNode | PassAlias) -> SyntaxNode:
+def ensure_syntax_node(
+        obj: t.Union[SyntaxNode, PassAlias],
+) -> SyntaxNode:
     """Ensures that `obj` is a syntax node."""
     # Import here to avoid circular import.
-    from .base import ensure_operation  # pylint: disable=import-outside-toplevel
+    # pylint: disable=import-outside-toplevel
+    from .base import ensure_operation
 
     if isinstance(obj, SyntaxNode):
         return obj

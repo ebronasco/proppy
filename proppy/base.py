@@ -7,7 +7,6 @@ from collections.abc import Iterable
 from copy import deepcopy
 
 import typing as t
-from typing_extensions import TypedDict
 
 from pydash import py_
 from pydantic import TypeAdapter, ValidationError
@@ -18,6 +17,7 @@ from .tree_utils import (
     build_tree,
     build_tree_from_callable,
     type_tree_union,
+    to_typed_dict,
     nested_get,
     nested_set,
 )
@@ -33,68 +33,6 @@ if t.TYPE_CHECKING:
     from .syntax_tree import SyntaxNode
 
 
-def ensure_operation(obj: "Operation" | PassAlias) -> "Operation":
-    """
-    Ensures that `obj` is an operation by passing it to `Pass` if its
-    not.
-
-    Args:
-        obj: Either an alias of `Pass`, or an `Operation`.
-
-    **Raises:** `TypeError` if `obj` is of the wrong type.
-
-    **Examples:**
-    ```python
-    >>> ensure_operation("x")
-    Pass(x -> x)
-    >>> ensure_operation(("x", "y"))
-    Pass(x -> y)
-    >>> ensure_operation(["x", ("y", "z")]).connections == \
-    {("x", "x"), ("y", "z")}
-    True
-    >>> ensure_operation(ensure_operation("x"))
-    Pass(x -> x)
-
-    ```
-    """
-    if isinstance(obj, Operation):
-        return obj
-
-    if isinstance(obj, str):
-        obj = {obj}
-
-    if isinstance(obj, tuple):
-        obj = {obj}
-
-    if not isinstance(obj, Iterable):
-        _error_msg = f"The value \"{obj}\" cannot be cast to an Operation."
-        raise TypeError(_error_msg)
-
-    return Pass(obj)
-
-
-def to_typed_dict(root_name: str, type_tree: TypeTree) -> type:
-    """Wrap keys in TypedDict named `root_name` recursively."""
-
-    try:
-        tree_items = type_tree.items()
-    except AttributeError as e:
-        _error_msg = ["The argument `type_tree` must be a `dict`. ",
-                      "Value of `type_tree`:\n",
-                      repr(type_tree)]
-        raise AttributeError("".join(_error_msg)) from e
-
-    typed_subdicts = {}
-
-    for k, v in tree_items:
-        if isinstance(v, dict):
-            typed_subdicts[k] = to_typed_dict(str(k), v)
-        else:
-            typed_subdicts[k] = v
-
-    return TypedDict(root_name, typed_subdicts)  # type: ignore
-
-
 class Operation(ABC):
     """
     *An abstract superclass for all operations.*
@@ -107,12 +45,13 @@ class Operation(ABC):
     # pylint: disable=too-many-instance-attributes
     # Eight is reasonable in this case.
 
-    def __init__(self,
-                 output_type_tree: TypeTree,
-                 input_type_tree: t.Optional[TypeTree] = None,
-                 append: bool = False,
-                 extend: bool = False,
-                 ):
+    def __init__(
+            self,
+            output_type_tree: TypeTree,
+            input_type_tree: t.Optional[TypeTree] = None,
+            append: bool = False,
+            extend: bool = False,
+    ):
         """
         Args:
             output_type_tree: Type tree used to validate the output.
@@ -184,7 +123,8 @@ class Operation(ABC):
         """Wrap the operation into a `SyntaxLeaf`."""
 
         # import it here to avoid circular import.
-        from .syntax_tree import SyntaxLeaf  # pylint: disable=import-outside-toplevel
+        # pylint: disable=import-outside-toplevel
+        from .syntax_tree import SyntaxLeaf
 
         return SyntaxLeaf(self)
 
@@ -245,19 +185,34 @@ class Operation(ABC):
     def __pos__(self) -> "SyntaxNode":
         return +(self.get_syntax_node())
 
-    def __and__(self, other: "SyntaxNode" | PassAlias) -> "SyntaxNode":
+    def __and__(
+            self,
+            other: t.Union["SyntaxNode", PassAlias],
+    ) -> "SyntaxNode":
         return self.get_syntax_node() & ensure_syntax_node(other)
 
-    def __or__(self, other: "SyntaxNode" | PassAlias) -> "SyntaxNode":
+    def __or__(
+            self,
+            other: t.Union["SyntaxNode", PassAlias],
+    ) -> "SyntaxNode":
         return self.get_syntax_node() | ensure_syntax_node(other)
 
-    def __rand__(self, other: "SyntaxNode" | PassAlias) -> "SyntaxNode":
+    def __rand__(
+            self,
+            other: t.Union["SyntaxNode", PassAlias],
+    ) -> "SyntaxNode":
         return ensure_syntax_node(other) & self.get_syntax_node()
 
-    def __ror__(self, other: "SyntaxNode" | PassAlias) -> "SyntaxNode":
+    def __ror__(
+            self,
+            other: t.Union["SyntaxNode", PassAlias],
+    ) -> "SyntaxNode":
         return ensure_syntax_node(other) | self.get_syntax_node()
 
-    def __rrshift__(self, other: t.Any) -> t.Tuple[t.Any, "SyntaxNode"]:
+    def __rrshift__(
+            self,
+            other: t.Any,
+    ) -> t.Tuple[t.Any, "SyntaxNode"]:
         return other >> self.get_syntax_node()
 
 
@@ -346,7 +301,7 @@ class Return(Operation):
     >>> r = Return({'a': 1, 'b': {'c': True}})
     >>> r()
     {'a': 1, 'b': {'c': True}}
-    
+
     ```
     """
 
@@ -528,7 +483,10 @@ class Append(Operation):
     ```
     """
 
-    def __init__(self, operation: Operation | PassAlias):
+    def __init__(
+            self,
+            operation: t.Union[Operation, PassAlias],
+    ):
         """
         Args:
             operation: an operation or a Pass alias.
@@ -632,6 +590,48 @@ class Id(Operation):
         for func in self.funcs:
             func(inputs)
         return {}
+
+
+def ensure_operation(
+        obj: t.Union[Operation, PassAlias],
+) -> Operation:
+    """
+    Ensures that `obj` is an operation by passing it to `Pass` if its
+    not.
+
+    Args:
+        obj: Either an alias of `Pass`, or an `Operation`.
+
+    **Raises:** `TypeError` if `obj` is of the wrong type.
+
+    **Examples:**
+    ```python
+    >>> ensure_operation("x")
+    Pass(x -> x)
+    >>> ensure_operation(("x", "y"))
+    Pass(x -> y)
+    >>> ensure_operation(["x", ("y", "z")]).connections == \
+    {("x", "x"), ("y", "z")}
+    True
+    >>> ensure_operation(ensure_operation("x"))
+    Pass(x -> x)
+
+    ```
+    """
+    if isinstance(obj, Operation):
+        return obj
+
+    if isinstance(obj, str):
+        obj = {obj}
+
+    if isinstance(obj, tuple):
+        obj = {obj}
+
+    if not isinstance(obj, Iterable):
+        _error_msg = f"The value \"{obj}\" cannot be cast to an Operation."
+        raise TypeError(_error_msg)
+
+    return Pass(obj)
 
 
 N = Id()

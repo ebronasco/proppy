@@ -10,7 +10,6 @@ from pydash import py_
 from .base import (
     Operation,
     ensure_operation,
-    N,
 )
 
 from .types import (
@@ -53,7 +52,10 @@ class Concat(Operation):
     ```
     """
 
-    def __init__(self, *operation_aliases: Operation | PassAlias):
+    def __init__(
+            self,
+            *operation_aliases: t.Union[Operation, PassAlias],
+    ):
         """
         Args:
             *operation_aliases: Operations or aliases of Pass.
@@ -109,7 +111,8 @@ class Concat(Operation):
 
     def get_syntax_node(self) -> "SyntaxNode":
         # Import it here to avoid circular import.
-        from .syntax_tree import SyntaxBranch  # pylint: disable=import-outside-toplevel
+        # pylint: disable=import-outside-toplevel
+        from .syntax_tree import SyntaxBranch
 
         return SyntaxBranch(Concat)
 
@@ -134,7 +137,8 @@ class Compose(Operation):
     ... )
     Traceback (most recent call last):
     ...
-    TypeError: The output doesn't match the input at position 2. The output tree
+    TypeError: The output doesn't match the input at position 2.
+    The output tree
     {'x': typing.Any}
     doesn't match the input tree of "Pass(y -> y)"
     {'y': typing.Any}
@@ -142,7 +146,10 @@ class Compose(Operation):
     ```
     """
 
-    def __init__(self, *operation_aliases: Operation | PassAlias):
+    def __init__(
+            self,
+            *operation_aliases: t.Union[Operation, PassAlias],
+    ):
         """
         Args:
             *operation_aliases: Operations or aliases of Pass.
@@ -158,7 +165,8 @@ class Compose(Operation):
                 py_.defaults_deep(input_type_tree, op.input_type_tree)
             elif not type_tree_match(output_type_tree, op.input_type_tree):
                 _error_msg = ["The output doesn't match the input at ",
-                              f"position {i+1}. The output tree\n",
+                              f"position {i+1}.\n",
+                              "The output tree\n",
                               repr(output_type_tree), "\n",
                               f"doesn't match the input tree of \"{op}\"\n",
                               repr(op.input_type_tree)]
@@ -196,7 +204,8 @@ class Compose(Operation):
 
     def get_syntax_node(self) -> "SyntaxNode":
         # Import it here to avoid circular import.
-        from .syntax_tree import SyntaxBranch  # pylint: disable=import-outside-toplevel
+        # pylint: disable=import-outside-toplevel
+        from .syntax_tree import SyntaxBranch
 
         return SyntaxBranch(Compose)
 
@@ -233,10 +242,10 @@ class Cycle(Operation):
     """
 
     def __init__(
-        self,
-        operation: Operation | PassAlias,
-        counter: t.Optional[int] = -1,
-        key: t.Optional[KeyPath] = None,
+            self,
+            operation: t.Union[Operation, PassAlias],
+            counter: t.Optional[int] = -1,
+            key: t.Optional[KeyPath] = None,
     ):
         """
         Args:
@@ -298,7 +307,7 @@ class Switch(Operation):
 
     **Examples:**
     ```python
-    >>> from .base import Append, Lambda
+    >>> from .base import Append, Lambda, N
     >>> s = Switch("x",
     ...     (1, Lambda({"y": lambda s: "x is 1"})),
     ...     (2, Lambda({"y": lambda s: "x is 2"})),
@@ -337,10 +346,10 @@ class Switch(Operation):
     """
 
     def __init__(
-        self,
-        key: KeyPath,
-        *cases: t.Tuple[t.Any, Operation | PassAlias],
-        default: t.Optional[Operation | PassAlias] = None,
+            self,
+            key: KeyPath,
+            *cases: t.Tuple[t.Any, t.Union[Operation, PassAlias]],
+            default: t.Optional[t.Union[Operation, PassAlias]] = None,
     ):
         """
         Args:

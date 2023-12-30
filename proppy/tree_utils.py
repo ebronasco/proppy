@@ -8,8 +8,11 @@ from collections.abc import Iterable
 from copy import deepcopy
 
 import typing as t
+from typing_extensions import TypedDict
 
 from pydash import py_
+
+import runtype as rt
 
 from .types import (
     KeyPath,
@@ -104,11 +107,11 @@ def build_tree_from_callable(
     argspec = getfullargspec(func)
     args = argspec.args[start_at:]
     annotations = {k: v for k, v in argspec.annotations.items() if k in args}
-    return {k: t.Any for k in args} | annotations
+    return {**{k: t.Any for k in args}, **annotations}
 
 
 def build_tree(
-        elems: Iterable[t.Tuple | t.Any],
+        elems: t.Iterable[t.Union[t.Tuple, t.Any]],
         default: t.Any = None,
 ) -> NestedDict:
     """
@@ -338,11 +341,11 @@ def type_tree_match(
     ```python
     >>> type_tree_match(
     ...     {'a': int, 'b': {'c': str}, 'd': bool},
-    ...     {'a': int | str, 'b': dict}
+    ...     {'a': t.Union[int, str], 'b': dict}
     ... )
     True
     >>> type_tree_match(
-    ...     {'a': int | str, 'b': {'c': str}, 'd': bool},
+    ...     {'a': t.Union[int, str], 'b': {'c': str}, 'd': bool},
     ...     {'a': int}
     ... )
     False
@@ -362,14 +365,42 @@ def type_tree_match(
     )
 
 
+def to_typed_dict(
+        root_name: str,
+        type_tree: TypeTree,
+) -> t.Type:
+    """Wrap keys in TypedDict named `root_name` recursively."""
+
+    try:
+        tree_items = type_tree.items()
+    except AttributeError as e:
+        _error_msg = ["The argument `type_tree` must be a `dict`. ",
+                      "Value of `type_tree`:\n",
+                      repr(type_tree)]
+        raise AttributeError("".join(_error_msg)) from e
+
+    typed_subdicts = {}
+
+    for k, v in tree_items:
+        if isinstance(v, dict):
+            typed_subdicts[k] = to_typed_dict(str(k), v)
+        else:
+            typed_subdicts[k] = v
+
+    return TypedDict(root_name, typed_subdicts)  # type: ignore
+
+
 def issubtype(
-        t1: dict | type,
-        t2: type,
+        t1: t.Union[dict, t.Type],
+        t2: t.Type,
 ) -> bool:
     """
-    Check if type `t1` is a subtype of `t2`. We consider instances of
-    `dict` to be subtypes of the `dict` type. We consider `NoneType` to
-    NOT be a subtype of `Any`.
+    Check if type `t1` is a subtype of `t2`. Warning:
+    ! We consider instances of `dict` to be subtypes of the `dict`
+    type.
+    ! We consider `NoneType` to NOT be a subtype of `Any`.
+    ! Both `t1` and `t2` cannot be `dict`s. To compare two type
+    trees, use `type_tree_match`.
 
     **Examples:**
     ```python
@@ -381,11 +412,14 @@ def issubtype(
     True
     >>> issubtype(dict, {'a': int})
     False
-    >>> issubtype(int, int | str) and issubtype(str, int | str)
+    >>> issubtype(int, t.Union[int, str]) and issubtype(str, t.Union[int, str])
     True
-    >>> issubtype(int | str, int)
+    >>> issubtype(t.Union[int, str], int)
     False
-    >>> issubtype(int, int | None) and issubtype(type(None), int | None)
+    >>> issubtype(t.Union[int, str], t.Union[int, str, bool])
+    True
+    >>> issubtype(int, t.Union[int, None]) \
+    and issubtype(type(None), t.Union[int, None])
     True
     >>> issubtype(str, t.Optional[str]) \
     and issubtype(type(None), t.Optional[str])
@@ -394,13 +428,13 @@ def issubtype(
     ```
     """
 
-    if t2 is t.Any and t1 is not type(None):
-        return True
+    if t2 is t.Any:
+        return t1 is not type(None)
+
+    if isinstance(t2, dict):
+        return False
 
     if isinstance(t1, dict):
-        return issubclass(dict, t2)
+        return rt.is_subtype(dict, t2)
 
-    try:
-        return issubclass(t1, t2)
-    except TypeError:
-        return False
+    return rt.is_subtype(t1, t2)
