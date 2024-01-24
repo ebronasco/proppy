@@ -157,12 +157,20 @@ class Compose(Operation):
         operations = tuple(ensure_operation(op) for op in operation_aliases)
 
         append = operations[0].append
-        input_type_tree = deepcopy(operations[0].input_type_tree)
-        output_type_tree = deepcopy(operations[0].input_type_tree)
+
+        input_type_tree: TypeTree = deepcopy(operations[0].input_type_tree)
+        output_type_tree: TypeTree = deepcopy(operations[0].input_type_tree)
 
         for i, op in enumerate(operations):
             if append:
-                py_.defaults_deep(input_type_tree, op.input_type_tree)
+                type_tree_union(
+                    input_type_tree,
+                    type_tree_difference(
+                        op.input_type_tree,
+                        output_type_tree,
+                        keep_bigger=False,
+                    ),
+                )
             elif not type_tree_match(output_type_tree, op.input_type_tree):
                 _error_msg = ["The output doesn't match the input at ",
                               f"position {i+1}.\n",

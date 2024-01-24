@@ -165,6 +165,27 @@ def build_tree(
     raise TypeError("".join(_error_msg))
 
 
+def build_tree_of(obj: NestedDict):
+    """
+    Build a type tree of an object.
+
+    ***!!! `obj` is changed.***
+
+    Args:
+        obj: The object whose type tree is built.
+
+    **Examples:**
+    ```python
+    >>> build_tree_of({'a': 1, 'b': {'c': "Hello"}})
+    {'a': <class 'int'>, 'b': {'c': <class 'str'>}}
+
+    ```
+    """
+
+    py_.map_values_deep(obj, type)
+    return obj
+
+
 def type_tree_union(
         obj: TypeTree,
         source: TypeTree,
@@ -246,7 +267,8 @@ def type_tree_union(
 def type_tree_difference(
         obj: TypeTree,
         source: TypeTree,
-        compare_types: bool = True
+        compare_types: bool = True,
+        keep_bigger: bool = True,
 ) -> TypeTree:
     """
     Take the difference between two type trees.
@@ -257,6 +279,8 @@ def type_tree_difference(
         compare_types: If `False`, the type trees are compared only key-wise,
             disregarding the types. If `True`, add the type from `obj` to
             the difference if it is bigger.
+        keep_bigger: If `True`, keep the bigger type in `obj` if the types
+            are compared.
 
     **Raises:** `TypeError` for the cases when both type trees have the
         same key, but the values are not comparable.
@@ -311,11 +335,16 @@ def type_tree_difference(
                 raise TypeError("".join(_error_msg)) from e
             continue
 
-        if not compare_types or issubtype(value, source[key]):
+        if not compare_types:
+            continue
+
+        if issubtype(value, source[key]):
             continue
 
         if issubtype(source[key], value):
-            diff[key] = value
+            if keep_bigger:
+                diff[key] = value
+
             continue
 
         _error_msg = ["Couldn't compute type tree difference of\n",

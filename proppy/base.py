@@ -129,7 +129,7 @@ class Operation(ABC):
         return SyntaxLeaf(self)
 
     def __str__(self):
-        return "Operation"
+        return type(self).__name__
 
     def __repr__(self) -> str:
         debug_info = "\n" + type(self).__name__ + "\n"
@@ -151,7 +151,9 @@ class Operation(ABC):
         try:
             valid_inputs = self.validate_input(inputs)
         except ValidationError as e:
-            _error_msg = ["Input\n",
+            _error_msg = ["Error occured in the operation:\n",
+                          repr(self), "\n",
+                          "Input:\n",
                           repr(inputs), "\n",
                           "doesn't match the type tree\n",
                           repr(self.input_type_tree)]
@@ -165,7 +167,9 @@ class Operation(ABC):
         try:
             valid_outputs = self.validate_output(outputs)
         except ValidationError as e:
-            _error_msg = ["Output\n",
+            _error_msg = ["Error occured in the operation:\n",
+                          repr(self), "\n",
+                          "Output\n",
                           repr(outputs), "\n",
                           "doesn't match the type tree\n",
                           repr(self.output_type_tree)]
