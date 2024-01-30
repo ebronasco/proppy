@@ -16,6 +16,7 @@ from .syntax_tree import ensure_syntax_node
 from .tree_utils import (
     build_tree,
     build_tree_from_callable,
+    get_type,
     type_tree_union,
     to_typed_dict,
     nested_get,
@@ -323,7 +324,7 @@ class Return(Operation):
 
         if output_type_tree is None:
             output_type_tree = deepcopy(output)
-            py_.map_values_deep(output_type_tree, lambda v, k: type(v))
+            py_.map_values_deep(output_type_tree, lambda v, k: get_type(v))
 
         super().__init__(
             input_type_tree={},

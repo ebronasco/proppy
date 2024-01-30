@@ -28,6 +28,25 @@ class SyntaxNode(ABC):
         _error_msg = "The method `assemble` is not implemented."
         raise NotImplementedError(_error_msg)
 
+    def partial(self, **inputs) -> "SyntaxNode":
+        """
+        Fix some of the inputs of the operation and return a new
+        `SyntaxNode`.
+        """
+
+        # Import here to avoid circular import.
+        from .combine import Compose  # pylint: disable=import-outside-toplevel
+        from .base import (  # pylint: disable=import-outside-toplevel
+            Append,
+            Return,
+        )
+
+        partial_inputs = SyntaxLeaf(Return(inputs))
+
+        append_partial_inputs = SyntaxBranch(Append, children=[partial_inputs])
+
+        return SyntaxBranch(Compose, children=[append_partial_inputs, self])
+
     def __call__(self, **inputs) -> NestedDict:
         """Assembles the operation and calls it."""
         operation = self.assemble()

@@ -14,6 +14,14 @@ def test_inputs():
 
     assert op(x=1, y=10, z=100) == {'a': 11}
 
+def test_partial():
+    op = Lambda({
+        'a': lambda s, x, y: x + y,
+    })
+
+    op = ensure_syntax_node(op)
+
+    assert op.partial(x=1)(y=10) == {'a': 11}
 
 def test_composition():
     op1 = Lambda({
