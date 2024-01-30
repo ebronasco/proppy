@@ -187,6 +187,23 @@ class Operation(ABC):
         _error_msg = "The method `run` is not implemented."
         raise NotImplementedError(_error_msg)
 
+    def partial(self, **inputs) -> "SyntaxNode":
+        """
+        Partially apply the operation to `inputs`.
+
+        **Examples:**
+        ```python
+        >>> p = Pass('a') & Pass({'b', ('a.d', 'c.d')})
+        >>> p(a={'d': 1}, b=2) == {'a': {'d': 1}, 'b': 2, 'c': {'d': 1}}
+        True
+        >>> p.partial(b=2)(a={'d': 1}) \
+        == {'a': {'d': 1}, 'b': 2, 'c': {'d': 1}}
+        True
+
+        ```
+        """
+        return self.get_syntax_node().partial(**inputs)
+
     def __pos__(self) -> "SyntaxNode":
         return +(self.get_syntax_node())
 
