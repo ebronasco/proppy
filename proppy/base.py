@@ -149,6 +149,12 @@ class Operation(ABC):
         **Raises:**
         `ValidatorError` is raised by input and output validators.
         """
+
+        defaults = deepcopy(self.input_type_tree)
+        py_.map_values_deep(defaults, lambda v, k: None)
+
+        py_.defaults_deep(inputs, defaults)
+
         try:
             valid_inputs = self.validate_input(inputs)
         except ValidationError as e:
