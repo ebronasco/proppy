@@ -16,6 +16,7 @@ from .syntax_tree import ensure_syntax_node
 from .tree_utils import (
     build_tree,
     build_tree_from_callable,
+    get_type,
     type_tree_union,
     to_typed_dict,
     nested_get,
@@ -148,6 +149,12 @@ class Operation(ABC):
         **Raises:**
         `ValidatorError` is raised by input and output validators.
         """
+
+        defaults = deepcopy(self.input_type_tree)
+        py_.map_values_deep(defaults, lambda v, k: None)
+
+        py_.defaults_deep(inputs, defaults)
+
         try:
             valid_inputs = self.validate_input(inputs)
         except ValidationError as e:
@@ -185,6 +192,23 @@ class Operation(ABC):
         """Must be implemented by subclasses. It is called by `__call__`."""
         _error_msg = "The method `run` is not implemented."
         raise NotImplementedError(_error_msg)
+
+    def partial(self, **inputs) -> "SyntaxNode":
+        """
+        Partially apply the operation to `inputs`.
+
+        **Examples:**
+        ```python
+        >>> p = Pass('a') & Pass({'b', ('a.d', 'c.d')})
+        >>> p(a={'d': 1}, b=2) == {'a': {'d': 1}, 'b': 2, 'c': {'d': 1}}
+        True
+        >>> p.partial(b=2)(a={'d': 1}) \
+        == {'a': {'d': 1}, 'b': 2, 'c': {'d': 1}}
+        True
+
+        ```
+        """
+        return self.get_syntax_node().partial(**inputs)
 
     def __pos__(self) -> "SyntaxNode":
         return +(self.get_syntax_node())
@@ -323,7 +347,7 @@ class Return(Operation):
 
         if output_type_tree is None:
             output_type_tree = deepcopy(output)
-            py_.map_values_deep(output_type_tree, lambda v, k: type(v))
+            py_.map_values_deep(output_type_tree, lambda v, k: get_type(v))
 
         super().__init__(
             input_type_tree={},

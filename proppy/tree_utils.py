@@ -463,7 +463,29 @@ def issubtype(
     if isinstance(t2, dict):
         return False
 
-    if isinstance(t1, dict):
-        return rt.is_subtype(dict, t2)
+    if rt.isa(t1, dict):
+        return rt.isa(t1, t2)
 
     return rt.is_subtype(t1, t2)
+
+
+def get_type(obj):
+    """
+    Return the type of `obj`. If `obj` is a function, return `typing.Callable`.
+
+    **Examples:**
+    ```python
+    >>> get_type(1)
+    <class 'int'>
+    >>> get_type(lambda x: x)
+    typing.Callable
+    >>> get_type({'a': 1})
+    <class 'dict'>
+
+    ```
+    """
+
+    if callable(obj):
+        return t.Callable
+
+    return type(obj)
