@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from copy import deepcopy
 
 import typing as t
+import functools
 
 from pydash import py_
 from pydantic import TypeAdapter, ValidationError
@@ -358,6 +359,34 @@ class Return(Operation):
         return self.output
 
 
+def operation(
+        output_type_tree: TypeTree,
+        input_type_tree: t.Optional[TypeTree] = None,
+        name: t.Optional[str] = None,
+) -> t.Union[Operation, t.Callable]:
+    """
+    Decorate a function to be an operation.
+
+    **Examples:**
+    ```python
+    >>> @operation({"res": {"a": float}})
+    ... def add(s, x, y):
+    ...     return {"res": {"a": x + y}}
+    >>> add(x=1, y=2)
+    {'res': {'a': 3.0}}
+
+    """
+
+    def wrapper(func):
+        return Function(
+            output_type_tree=output_type_tree,
+            input_type_tree=input_type_tree,
+            func=func,
+            name=name,
+        )
+    return wrapper
+
+
 class Function(Operation):
     """
     Wraps a given function into an operation.
@@ -388,15 +417,16 @@ class Function(Operation):
                 If `None`, take the input type of `func`.
             name: Name of the function used for debug.
         """
-
-        if input_type_tree is None:
+        if input_type_tree is None:  # mypy: ignore
             input_type_tree = build_tree_from_callable(func, start_at=1)
 
-        if name is None:
+        if name is None:  # mypy: ignore
             name = func.__name__
 
         self._func = func
         self._name = name
+
+        functools.update_wrapper(self, func)
 
         super().__init__(
             input_type_tree=input_type_tree,
@@ -513,19 +543,19 @@ class Append(Operation):
 
     def __init__(
             self,
-            operation: t.Union[Operation, PassAlias],
+            op: t.Union[Operation, PassAlias],
     ):
         """
         Args:
-            operation: an operation or a Pass alias.
+            op: an operation or a Pass alias.
         """
-        operation = ensure_operation(operation)
+        op = ensure_operation(op)
 
-        self.operation = operation
+        self.operation = op
 
         super().__init__(
-            input_type_tree=operation.input_type_tree,
-            output_type_tree=operation.output_type_tree,
+            input_type_tree=op.input_type_tree,
+            output_type_tree=op.output_type_tree,
             append=True,
             extend=True,
         )
