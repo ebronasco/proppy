@@ -181,7 +181,7 @@ class Operation(ABC):
                           repr(outputs), "\n",
                           "doesn't match the type tree\n",
                           repr(self.output_type_tree)]
-            raise ValidationError("".join(_error_msg)) from e
+            raise TypeError("".join(_error_msg)) from e
 
         if self.append:
             valid_outputs = py_.merge(inputs, valid_outputs)
@@ -285,7 +285,7 @@ class Pass(Operation):
 
             if isinstance(value, tuple):
                 connections.add((path, value[0]))
-                output_type_list.add(value[0])
+                output_type_list.add(value)
                 return value[1]
 
             connections.add((path, value))
