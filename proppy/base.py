@@ -10,13 +10,11 @@ import typing as t
 import functools
 
 from pydash import py_
-from pydantic import TypeAdapter, ValidationError
 
 from .syntax_tree import ensure_syntax_node
 
 from .tree_utils import (
-    build_tree,
-    build_tree_from_callable,
+    keys_from_callable,
     get_type,
     type_tree_union,
     to_typed_dict,
@@ -25,14 +23,37 @@ from .tree_utils import (
 )
 
 from .types import (
-    TypeTree,
+    Key,
     FlatDict,
     NestedDict,
     PassAlias,
 )
 
+from .validator import (
+    validator_factory,
+)
+
 if t.TYPE_CHECKING:
     from .syntax_tree import SyntaxNode
+
+
+def ensure_typed_keys(
+        keys: t.Set[Key],
+) -> t.Set[Key]:
+    """
+    Ensures that `keys` is a set of (`Key`, `type`).
+
+    Args:
+        keys: A set of keys
+    """
+    new_keys = set()
+    for key in keys:
+        if isinstance(key, tuple):
+            new_keys.add(key)
+        else:
+            new_keys.add((key, t.Any))
+
+    return new_keys
 
 
 class Operation(ABC):
@@ -49,8 +70,8 @@ class Operation(ABC):
 
     def __init__(
             self,
-            output_type_tree: TypeTree,
-            input_type_tree: t.Optional[TypeTree] = None,
+            output_keys: t.Set[Key],
+            input_keys: t.Optional[t.Set[Key]] = None,
             append: bool = False,
             extend: bool = False,
     ):
@@ -64,62 +85,17 @@ class Operation(ABC):
                 only the input that is covered by the `input_type_tree`.
         """
 
-        self._input_validator = None
-        self._output_validator = None
+        if input_keys is None:
+            input_keys = keys_from_callable(self.run, start_at=1)
 
-        if input_type_tree is None:
-            input_type_tree = build_tree_from_callable(self.run, start_at=1)
+        self.input_keys = ensure_typed_keys(input_keys)
+        self.output_keys = ensure_typed_keys(output_keys)
 
-        if output_type_tree is None:
-            output_type_tree = {}
-
-        self.input_type_tree = input_type_tree
-        self.output_type_tree = output_type_tree
+        self.validate_input = validator_factory(input_keys)
+        self.validate_output = validator_factory(output_keys)
 
         self.append = append
         self.extend = extend
-
-    @property
-    def input_type_tree(self) -> TypeTree:
-        """Getter for `_input_type_tree`."""
-        return self._input_type_tree
-
-    @input_type_tree.setter
-    def input_type_tree(self, tree: TypeTree) -> None:
-        self._input_type_tree = tree
-
-        tree_type = to_typed_dict("TypeTree", tree)
-
-        self._input_validator = TypeAdapter(tree_type).validate_python
-
-    @property
-    def output_type_tree(self) -> TypeTree:
-        """Getter for `_output_type_tree`."""
-        return self._output_type_tree
-
-    @output_type_tree.setter
-    def output_type_tree(self, tree: TypeTree) -> None:
-        self._output_type_tree = tree
-
-        tree_type = to_typed_dict("TypeTree", tree)
-
-        self._output_validator = TypeAdapter(tree_type).validate_python
-
-    def validate_input(self, inputs: NestedDict) -> NestedDict:
-        """Validate `inputs` according to the `input_type_tree`."""
-        if self._input_validator is None:
-            _error_msg = "Input validator is None."
-            raise TypeError(_error_msg)
-
-        return self._input_validator(inputs)
-
-    def validate_output(self, outputs: NestedDict) -> NestedDict:
-        """Validate `outputs` according to the `output_type_tree`."""
-        if self._output_validator is None:
-            _error_msg = "Input validator is None."
-            raise TypeError(_error_msg)
-
-        return self._output_validator(outputs)
 
     def get_syntax_node(self) -> "SyntaxNode":
         """Wrap the operation into a `SyntaxLeaf`."""
@@ -135,8 +111,8 @@ class Operation(ABC):
 
     def __repr__(self) -> str:
         debug_info = "\n" + type(self).__name__ + "\n"
-        debug_info += f" -- input type tree: {self.input_type_tree}\n"
-        debug_info += f" -- output type tree: {self.output_type_tree}\n"
+        debug_info += f" -- input keys: {self.input_keys}\n"
+        debug_info += f" -- output keys: {self.output_keys}\n"
         return debug_info
 
     def __call__(self, **inputs) -> NestedDict:
@@ -151,20 +127,15 @@ class Operation(ABC):
         `ValidatorError` is raised by input and output validators.
         """
 
-        defaults = deepcopy(self.input_type_tree)
-        py_.map_values_deep(defaults, lambda v, k: None)
-
-        py_.defaults_deep(inputs, defaults)
-
         try:
             valid_inputs = self.validate_input(inputs)
-        except ValidationError as e:
+        except Exception as e:
             _error_msg = ["Error occured in the operation:\n",
                           repr(self), "\n",
                           "Input:\n",
                           repr(inputs), "\n",
-                          "doesn't match the type tree\n",
-                          repr(self.input_type_tree)]
+                          "doesn't match the input keys\n",
+                          repr(self.input_keys)]
             raise TypeError("".join(_error_msg)) from e
 
         if self.extend:
@@ -174,13 +145,13 @@ class Operation(ABC):
 
         try:
             valid_outputs = self.validate_output(outputs)
-        except ValidationError as e:
+        except Exception as e:
             _error_msg = ["Error occured in the operation:\n",
                           repr(self), "\n",
                           "Output\n",
                           repr(outputs), "\n",
-                          "doesn't match the type tree\n",
-                          repr(self.output_type_tree)]
+                          "doesn't match the output keys\n",
+                          repr(self.output_keys)]
             raise TypeError("".join(_error_msg)) from e
 
         if self.append:
@@ -268,40 +239,33 @@ class Pass(Operation):
 
         iterable_keys = keys
         if not isinstance(keys, Iterable):
-            iterable_keys = [keys]
+            iterable_keys = set([keys])
 
-        key_tree = build_tree(iterable_keys, default=t.Any)
-
-        output_type_list = set()
+        input_keys = set()
+        output_keys = set()
         connections = set()
 
-        def callback(value, path_list):
-            path = '.'.join(path_list)
-
-            if isinstance(value, type) or value is t.Any:
-                connections.add((path, path))
-                output_type_list.add(path)
-                return value
-
-            if isinstance(value, tuple):
-                connections.add((path, value[0]))
-                output_type_list.add(value)
-                return value[1]
-
-            connections.add((path, value))
-            output_type_list.add(value)
-            return t.Any
-
-        input_type_tree = deepcopy(key_tree)
-        py_.map_values_deep(input_type_tree, callback)
-
-        output_type_tree = build_tree(output_type_list, default=t.Any)
+        for key in keys:
+            if isinstance(key, tuple):
+                input_keys.add(key[0])
+                output_keys.add(key[1])
+                connections.add(key)
+            elif type(key).__str__ is not object.__str__:
+                input_keys.add(key)
+                output_keys.add(key)
+                connections.add((key, key))
+            else:
+                _error_msg = "".join([
+                    f"The key \"{key}\" must be a tuple or an object of a ",
+                    "class with a `__str__` magic method.",
+                ])
+                raise TypeError(_error_msg)
 
         self.connections = connections
 
         super().__init__(
-            input_type_tree=input_type_tree,
-            output_type_tree=output_type_tree
+            input_keys=input_keys,
+            output_keys=output_keys,
         )
 
     def __str__(self) -> str:
@@ -328,8 +292,8 @@ class Return(Operation):
     **Examples:**
     ```python
     >>> r = Return({'a': 1, 'b': {'c': True}})
-    >>> r()
-    {'a': 1, 'b': {'c': True}}
+    >>> r() == {'a': 1, 'b': {'c': True}}
+    True
 
     ```
     """
@@ -337,22 +301,21 @@ class Return(Operation):
     def __init__(
             self,
             output: NestedDict,
-            output_type_tree: t.Optional[TypeTree] = None,
+            output_keys: t.Optional[t.Set[Key]] = None,
     ):
         """
         Args:
             output: A nested dict.
-            output_type_tree: An output type
+            output_keys: The keys of the output.
         """
         self.output = deepcopy(output)
 
-        if output_type_tree is None:
-            output_type_tree = deepcopy(output)
-            py_.map_values_deep(output_type_tree, lambda v, k: get_type(v))
+        if output_keys is None:
+            output_keys = set(output.keys())
 
         super().__init__(
-            input_type_tree={},
-            output_type_tree=output_type_tree
+            input_keys=None,
+            output_keys=output_keys
         )
 
     def run(self, **inputs) -> NestedDict:
@@ -360,8 +323,8 @@ class Return(Operation):
 
 
 def operation(
-        output_type_tree: TypeTree,
-        input_type_tree: t.Optional[TypeTree] = None,
+        output_keys: t.Set[Key],
+        input_keys: t.Optional[t.Set[Key]] = None,
         name: t.Optional[str] = None,
 ) -> t.Union[Operation, t.Callable]:
     """
@@ -369,7 +332,7 @@ def operation(
 
     **Examples:**
     ```python
-    >>> @operation({"res": {"a": float}})
+    >>> @operation({("res.a", float)})
     ... def add(s, x, y):
     ...     return {"res": {"a": x + y}}
     >>> add(x=1, y=2)
@@ -379,8 +342,8 @@ def operation(
 
     def wrapper(func):
         return Function(
-            output_type_tree=output_type_tree,
-            input_type_tree=input_type_tree,
+            output_keys=output_keys,
+            input_keys=input_keys,
             func=func,
             name=name,
         )
@@ -394,7 +357,7 @@ class Function(Operation):
     **Examples**
     ```python
     >>> add = lambda s, x, y: {'res': {'a': x + y}}
-    >>> op = Function({"res": {"a": float}}, add)
+    >>> op = Function({("res.a", float)}, add)
     >>> op(x=1, y=2)
     {'res': {'a': 3.0}}
 
@@ -403,22 +366,22 @@ class Function(Operation):
 
     def __init__(
             self,
-            output_type_tree: TypeTree,
+            output_keys: t.Set[Key],
             func: t.Callable,
-            input_type_tree: t.Optional[TypeTree] = None,
+            input_keys: t.Optional[t.Set[Key]] = None,
             name: t.Optional[str] = None,
     ):
         """
         Args:
-            output_type_tree: The output type of the function.
+            output_keys: The output keys of the function.
             func: The function to be wrapped. The first argument
                 of `func` receives the instance `self`.
-            input_type_tree: The required input type of the function.
-                If `None`, take the input type of `func`.
+            input_keys: The required input keys of the function.
+                If `None`, input keys are the arguments of `func`.
             name: Name of the function used for debug.
         """
-        if input_type_tree is None:  # mypy: ignore
-            input_type_tree = build_tree_from_callable(func, start_at=1)
+        if input_keys is None:  # mypy: ignore
+            input_keys = keys_from_callable(func, start_at=1)
 
         if name is None:  # mypy: ignore
             name = func.__name__
@@ -429,8 +392,8 @@ class Function(Operation):
         functools.update_wrapper(self, func)
 
         super().__init__(
-            input_type_tree=input_type_tree,
-            output_type_tree=output_type_tree,
+            input_keys=input_keys,
+            output_keys=output_keys,
         )
 
     def __repr__(self) -> str:
@@ -464,46 +427,35 @@ class Lambda(Operation):
             output: The dict of `callable`s.
         """
 
-        input_type_tree: TypeTree = {}
-        output_type_tree: TypeTree = {}
+        input_keys: t.Set[Key] = set()
+        output_keys: t.Set[Key] = set()
 
         input_validators: t.Dict = {}
 
         for key, value in output.items():
-            if isinstance(value, tuple) and len(value) == 2:
-                func = value[0]
-                output_type = value[1]
-            elif callable(value):
+            if callable(value):
                 func = value
-                output_type = t.Any
             else:
-                _error_msg = [f"The value at \"{key}\" must be either a ",
-                              "callable or a tuple (callable, output type)."]
+                _error_msg = [
+                    f"The value at \"{key}\" must be either a ",
+                     "callable or a tuple (callable, output type)."
+                ]
                 raise TypeError("".join(_error_msg))
 
-            output_type_tree[key] = output_type
+            output_keys.add(key)
 
-            type_tree = build_tree_from_callable(func, start_at=1)
+            func_input_keys = keys_from_callable(func, start_at=1)
 
-            try:
-                type_tree_union(input_type_tree, type_tree, minimize=True)
-            except TypeError as e:
-                _error_msg = ["Functions have incompatible input types.",
-                              "The inpute type tree\n",
-                              repr(type_tree), "\n",
-                              "of \"{func}\" is not compatible."]
-                raise TypeError("".join(_error_msg)) from e
+            input_keys = input_keys.union(func_input_keys)
 
-            tree_type = to_typed_dict("TypeTree", type_tree)
-
-            input_validators[key] = TypeAdapter(tree_type).validate_python
+            input_validators[key] = validator_factory(func_input_keys)
 
         self.input_validators = input_validators
         self.output = output
 
         super().__init__(
-            input_type_tree=input_type_tree,
-            output_type_tree=output_type_tree,
+            input_keys=input_keys,
+            output_keys=output_keys,
         )
 
     def __str__(self) -> str:
@@ -554,8 +506,8 @@ class Append(Operation):
         self.operation = op
 
         super().__init__(
-            input_type_tree=op.input_type_tree,
-            output_type_tree=op.output_type_tree,
+            input_keys=op.input_keys,
+            output_keys=op.output_keys,
             append=True,
             extend=True,
         )
@@ -586,8 +538,8 @@ class Empty(Operation):
 
     def __init__(self):
         super().__init__(
-            input_type_tree=None,
-            output_type_tree=None,
+            input_keys=None,
+            output_keys=set(),
         )
 
     def __repr__(self) -> str:
@@ -631,8 +583,8 @@ class Id(Operation):
         self.funcs = funcs
 
         super().__init__(
-            input_type_tree={},
-            output_type_tree={},
+            input_keys=None,
+            output_keys=set(),
             append=True,
             extend=True,
         )

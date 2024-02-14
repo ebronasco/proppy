@@ -133,11 +133,11 @@ class SyntaxLeaf(SyntaxNode):
 
     def __repr__(self) -> str:
         debug_info = repr(self.operation) + "\n"
-        debug_info += " -- input type tree:\n"
-        debug_info += repr(self.operation.input_type_tree)
+        debug_info += " -- input keys:\n"
+        debug_info += repr(self.operation.input_keys)
         debug_info += "\n"
-        debug_info += " -- output type tree:\n"
-        debug_info += repr(self.operation.output_type_tree)
+        debug_info += " -- output keys:\n"
+        debug_info += repr(self.operation.output_keys)
         return debug_info
 
 

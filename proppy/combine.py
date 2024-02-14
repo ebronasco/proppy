@@ -13,6 +13,7 @@ from .base import (
 )
 
 from .types import (
+    Key,
     TypeTree,
     NestedDict,
     PassAlias,
@@ -59,34 +60,19 @@ class Concat(Operation):
         """
         operations = tuple(ensure_operation(op) for op in operation_aliases)
 
-        input_type_tree: TypeTree = {}
+        input_keys: t.Set[Key] = set()
+        output_keys: t.Set[Key] = set()
         for op in operations:
-            try:
-                type_tree_union(
-                    input_type_tree,
-                    op.input_type_tree,
-                    minimize=True,
-                )
-            except TypeError as e:
-                _error_msg = [f"The input type tree of \"{op}\"\n",
-                              repr(op.input_type_tree), "\n",
-                              "couldn't be merged with\n",
-                              repr(input_type_tree)]
-                raise TypeError("".join(_error_msg)) from e
-
-        output_type_tree: TypeTree = {}
-        py_.merge(
-            output_type_tree,
-            *(op.output_type_tree for op in operations)
-        )
+            input_keys = input_keys.union(op.input_keys)
+            output_keys = output_keys.union(op.output_keys)
 
         append = any(op.append for op in operations)
 
         self.operations = operations
 
         super().__init__(
-            input_type_tree=input_type_tree,
-            output_type_tree=output_type_tree,
+            input_keys=input_keys,
+            output_keys=output_keys,
             append=append,
             extend=True,
         )
@@ -136,9 +122,9 @@ class Compose(Operation):
     ...
     TypeError: The output doesn't match the input at position 2.
     The output tree
-    {'x': typing.Any}
+    {('x', typing.Any)}
     doesn't match the input tree of "Pass(y -> y)"
-    {'y': typing.Any}
+    {('y', typing.Any)}
 
     ```
     """
@@ -155,39 +141,35 @@ class Compose(Operation):
 
         append = operations[0].append
 
-        input_type_tree: TypeTree = deepcopy(operations[0].input_type_tree)
-        output_type_tree: TypeTree = deepcopy(operations[0].input_type_tree)
+        input_keys: t.Set[Key] = operations[0].input_keys
+        output_keys: t.Set[Key] = operations[0].input_keys
 
         for i, op in enumerate(operations):
             if append:
-                type_tree_union(
-                    input_type_tree,
-                    type_tree_difference(
-                        op.input_type_tree,
-                        output_type_tree,
-                        keep_bigger=False,
-                    ),
+                input_keys = input_keys.union(
+                    op.input_keys - output_keys
                 )
-            elif not type_tree_match(output_type_tree, op.input_type_tree):
-                _error_msg = ["The output doesn't match the input at ",
-                              f"position {i+1}.\n",
-                              "The output tree\n",
-                              repr(output_type_tree), "\n",
-                              f"doesn't match the input tree of \"{op}\"\n",
-                              repr(op.input_type_tree)]
-                raise TypeError("".join(_error_msg))
+            elif op.input_keys - output_keys != set():
+                _error_msg = "\n".join([
+                    f"The output doesn't match the input at position {i+1}.",
+                    "The output tree",
+                    repr(output_keys),
+                    f"doesn't match the input tree of \"{op}\"",
+                    repr(op.input_keys)
+                ])
+                raise TypeError(_error_msg)
 
             if op.append:
-                py_.merge(output_type_tree, op.output_type_tree)
+                output_keys = output_keys.union(op.output_keys)
             else:
                 append = False
-                output_type_tree = deepcopy(op.output_type_tree)
+                output_keys = op.output_keys
 
         self.operations = operations
 
         super().__init__(
-            input_type_tree=input_type_tree,
-            output_type_tree=output_type_tree,
+            input_keys=input_keys,
+            output_keys=output_keys,
             append=append,
             extend=True,
         )

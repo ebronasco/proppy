@@ -15,6 +15,7 @@ from pydash import py_
 import runtype as rt
 
 from .types import (
+    Key,
     KeyPath,
     NestedDict,
     TypeTree,
@@ -81,10 +82,10 @@ def nested_set(
     return py_.set_(data, key, value)
 
 
-def build_tree_from_callable(
+def keys_from_callable(
         func: t.Callable,
         start_at: t.Optional[int] = 0,
-) -> TypeTree:
+) -> t.Set[Key]:
     """
     Build an input type tree of a callable.
 
@@ -94,20 +95,20 @@ def build_tree_from_callable(
 
     **Examples:**
     ```python
-    >>> build_tree_from_callable(lambda x, y: x)
-    {'x': typing.Any, 'y': typing.Any}
+    >>> keys_from_callable(lambda x, y: x) \
+    == {('x', t.Any), ('y', t.Any)}
+    True
     >>> def a(s: str, b: bool):
     ...     pass
     ...
-    >>> build_tree_from_callable(a)
-    {'s': <class 'str'>, 'b': <class 'bool'>}
+    >>> keys_from_callable(a)
+    {('s', <class 'str'>), ('b', <class 'bool'>)}
 
     ```
     """
     argspec = getfullargspec(func)
     args = argspec.args[start_at:]
-    annotations = {k: v for k, v in argspec.annotations.items() if k in args}
-    return {**{k: t.Any for k in args}, **annotations}
+    return set((k, argspec.annotations.get(k, t.Any)) for k in args)
 
 
 def build_tree(
@@ -160,9 +161,11 @@ def build_tree(
 
         return {}
 
-    _error_msg = ["The argument `elems` is of unsupported type:\n",
-                  repr(elems)]
-    raise TypeError("".join(_error_msg))
+    _error_msg = "\n".join([
+        "The argument `elems` is of unsupported type:",
+        repr(elems)
+    ])
+    raise TypeError(_error_msg)
 
 
 def build_tree_of(obj: NestedDict):
