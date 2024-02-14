@@ -7,7 +7,6 @@ from collections.abc import Iterable
 import typing as t
 
 from .types import (
-    KeyPath,
     NestedDict,
     PassAlias,
 )
@@ -194,112 +193,6 @@ class SyntaxBranch(SyntaxNode):
 
         debug_info += "}"
         return debug_info
-
-
-class SwitchNode(SyntaxNode):
-    """Wraps the `Switch` combination."""
-
-    def __init__(
-            self,
-            key: KeyPath,
-            cases: t.Iterable[t.Tuple[t.Any, SyntaxNode]],
-            default: t.Optional[SyntaxNode] = None,
-    ):
-        self.key = key
-        self.cases = cases
-        self.default = default
-
-    def assemble(self) -> "Operation":
-        # Import here to avoid circular import.
-        from .combine import Switch  # pylint: disable=import-outside-toplevel
-
-        cases = [(c, o.assemble()) for c, o in self.cases]
-
-        default = None
-        if self.default is not None:
-            default = self.default.assemble()
-
-        return Switch(
-            self.key,
-            *cases,
-            default=default,
-        )
-
-    def __repr__(self) -> str:
-        debug_info = f"Switch {self.key} {{\n"
-        for c, o in self.cases:
-            debug_info += f"\tcase {c}: {repr(o)}\n"
-        debug_info += "}\n"
-        return debug_info
-
-
-def switch(
-        key: KeyPath,
-        *cases,
-        default: t.Optional[t.Union[SyntaxNode, PassAlias]] = None,
-) -> SwitchNode:
-    """Creates a `SwitchNode`."""
-
-    cases_ensured = [(c, ensure_syntax_node(o)) for c, o in cases]
-
-    default_ensured = None
-
-    if default is not None:
-        default_ensured = ensure_syntax_node(default)
-
-    return SwitchNode(
-        key=key,
-        cases=cases_ensured,
-        default=default_ensured,
-    )
-
-
-class CycleNode(SyntaxNode):
-    """Wraps the `Cycle` combination."""
-
-    def __init__(
-        self,
-        operation: t.Union[SyntaxNode, PassAlias],
-        counter: t.Optional[int] = -1,
-        key: t.Optional[KeyPath] = None,
-    ):
-        self.operation = ensure_syntax_node(operation)
-        self.counter = counter
-        self.key = key
-
-    def assemble(self) -> "Operation":
-        # Import here to avoid circular import.
-        from .combine import Cycle  # pylint: disable=import-outside-toplevel
-
-        return Cycle(
-            operation=self.operation.assemble(),
-            counter=self.counter,
-            key=self.key,
-        )
-
-    def __repr__(self) -> str:
-        key = str(self.key) if self.key is not None else ""
-        counter = str(self.counter) if self.counter != -1 else ""
-
-        debug_info = f"Cycle {key} {counter} {{\n"
-        debug_info += f"\t{repr(self.operation)}\n"
-        debug_info += "}\n"
-        return debug_info
-
-
-def cycle(
-        operation: t.Union[SyntaxNode, PassAlias],
-        counter: t.Optional[int] = -1,
-        key: t.Optional[KeyPath] = None,
-) -> CycleNode:
-    """Creates a `CycleNode`."""
-    operation = ensure_syntax_node(operation)
-
-    return CycleNode(
-        operation=operation,
-        counter=counter,
-        key=key,
-    )
 
 
 def ensure_syntax_node(
