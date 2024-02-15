@@ -194,13 +194,13 @@ def keys_match(
         True if the keys match, False otherwise.
     """
 
+    keys1_dict = dict(keys1)
+
     for name2, type2 in keys2:
-        matched = False
-        for name1, type1 in keys1:
-            if name1 == name2 and rt.is_subtype(type1, type2):
-                matched = True
-                break
-        if not matched:
+        if name2 not in keys1_dict:
+            return False
+
+        if not rt.is_subtype(keys1_dict[name2], type2):
             return False
 
     return True
