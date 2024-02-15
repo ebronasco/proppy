@@ -38,7 +38,7 @@ class Run(Operation):
         input_keys: t.Set[Key] = set()
         output_keys: t.Set[Key] = set()
 
-        input_validators: t.Dict = {}
+        input_validators: t.Dict[Key, t.Callable] = {}
 
         for key, value in output.items():
             if callable(value):
