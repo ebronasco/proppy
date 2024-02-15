@@ -15,9 +15,6 @@ from .syntax_tree import ensure_syntax_node
 
 from .tree_utils import (
     keys_from_callable,
-    get_type,
-    type_tree_union,
-    to_typed_dict,
     nested_get,
     nested_set,
 )
@@ -239,27 +236,35 @@ class Pass(Operation):
 
         iterable_keys = keys
         if not isinstance(keys, Iterable):
-            iterable_keys = set([keys])
+            iterable_keys = {keys}
 
         input_keys = set()
         output_keys = set()
         connections = set()
 
-        for key in keys:
-            if isinstance(key, tuple):
-                input_keys.add(key[0])
-                output_keys.add(key[1])
-                connections.add(key)
-            elif type(key).__str__ is not object.__str__:
-                input_keys.add(key)
-                output_keys.add(key)
-                connections.add((key, key))
+        for key in iterable_keys:
+            if not isinstance(key, tuple):
+                tuple_key = (key,)
             else:
-                _error_msg = "".join([
-                    f"The key \"{key}\" must be a tuple or an object of a ",
-                    "class with a `__str__` magic method.",
-                ])
-                raise TypeError(_error_msg)
+                tuple_key = t.cast(t.Tuple, key)
+
+            if len(tuple_key) == 1:
+                input_keys.add(tuple_key[0])
+                output_keys.add(tuple_key[0])
+                connections.add((tuple_key[0], tuple_key[0]))
+            elif len(tuple_key) == 2:
+                if isinstance(tuple_key[1], str):
+                    input_keys.add(tuple_key[0])
+                    output_keys.add(tuple_key[1])
+                    connections.add(tuple_key)
+                else:
+                    input_keys.add(tuple_key)
+                    output_keys.add(tuple_key)
+                    connections.add((tuple_key[0], tuple_key[0]))
+            elif len(tuple_key) == 3:
+                input_keys.add((tuple_key[0], tuple_key[2]))
+                output_keys.add((tuple_key[1], tuple_key[2]))
+                connections.add((tuple_key[0], tuple_key[1]))
 
         self.connections = connections
 
@@ -438,8 +443,9 @@ class Lambda(Operation):
             else:
                 _error_msg = [
                     f"The value at \"{key}\" must be either a ",
-                     "callable or a tuple (callable, output type)."
+                    "callable or a tuple (callable, output type).",
                 ]
+
                 raise TypeError("".join(_error_msg))
 
             output_keys.add(key)
@@ -631,10 +637,7 @@ def ensure_operation(
     if isinstance(obj, Operation):
         return obj
 
-    if isinstance(obj, str):
-        obj = {obj}
-
-    if isinstance(obj, tuple):
+    if isinstance(obj, (str, tuple)):
         obj = {obj}
 
     if not isinstance(obj, Iterable):

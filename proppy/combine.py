@@ -3,8 +3,6 @@ Contains the operations that combine multiple operations into one.
 """
 import typing as t
 
-from copy import deepcopy
-
 from pydash import py_
 
 from .base import (
@@ -14,15 +12,8 @@ from .base import (
 
 from .types import (
     Key,
-    TypeTree,
     NestedDict,
     PassAlias,
-)
-
-from .tree_utils import (
-    type_tree_match,
-    type_tree_union,
-    type_tree_difference,
 )
 
 if t.TYPE_CHECKING:
@@ -40,12 +31,15 @@ class Concat(Operation):
     >>> c(x=1, y=10, z=100) == {"x": 1, "y": 10}
     True
     >>> c = Concat(Pass({("x", int)}), Pass({("x", str)}))
+    >>> c(x=1)
     Traceback (most recent call last):
     ...
-    TypeError: The input type tree of "Pass(x -> x)"
-    {'x': <class 'str'>}
-    couldn't be merged with
-    {'x': <class 'int'>}
+    TypeError: Error occured in the operation:
+    Pass(x -> x)
+    Input:
+    {'x': 1}
+    doesn't match the input keys
+    {('x', <class 'str'>)}
 
     ```
     """

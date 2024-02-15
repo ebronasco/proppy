@@ -101,8 +101,9 @@ def keys_from_callable(
     >>> def a(s: str, b: bool):
     ...     pass
     ...
-    >>> keys_from_callable(a)
-    {('s', <class 'str'>), ('b', <class 'bool'>)}
+    >>> keys_from_callable(a) \
+    == {('s', str), ('b', bool)}
+    True
 
     ```
     """
