@@ -3,6 +3,8 @@ Contains the operations that combine multiple operations into one.
 """
 import typing as t
 
+import runtype as rt
+
 from pydash import py_
 
 from .base.operation import Operation
@@ -130,7 +132,7 @@ class Compose(Operation):
                 input_keys = input_keys.union(
                     op.input_keys - output_keys
                 )
-            elif op.input_keys - output_keys != set():
+            elif not keys_match(output_keys, op.input_keys):
                 _error_msg = "\n".join([
                     f"The output doesn't match the input at position {i+1}.",
                     "The output tree",
@@ -175,3 +177,30 @@ class Compose(Operation):
         from .syntax_nodes import SyntaxBranch
 
         return SyntaxBranch(Compose)
+
+
+def keys_match(
+        keys1: t.Set[Key],
+        keys2: t.Set[Key],
+) -> bool:
+    """
+    Check if the keys match.
+
+    Args:
+        keys1: Set of keys.
+        keys2: Set of keys.
+
+    Returns:
+        True if the keys match, False otherwise.
+    """
+
+    for name2, type2 in keys2:
+        matched = False
+        for name1, type1 in keys1:
+            if name1 == name2 and rt.is_subtype(type1, type2):
+                matched = True
+                break
+        if not matched:
+            return False
+
+    return True
