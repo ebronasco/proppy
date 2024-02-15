@@ -33,6 +33,7 @@ Define the types used in the type hints.
 """
 
 from typing import (
+    Any,
     Union,
     Iterable,
     Tuple,
@@ -41,6 +42,7 @@ from typing import (
 
 import pydash.types as py_t
 
+Key = Any
 
 KeyPath = py_t.PathT
 
