@@ -13,6 +13,7 @@ from .base.const import Const
 from .types import (
     NestedDict,
     LetAlias,
+    Key,
 )
 
 
@@ -31,7 +32,11 @@ class SyntaxNode(ABC):
         _error_msg = "The method `assemble` is not implemented."
         raise NotImplementedError(_error_msg)
 
-    def partial(self, **inputs) -> "SyntaxNode":
+    def partial(
+            self,
+            output_keys: t.Optional[t.Set[Key]] = None,
+            **inputs,
+    ) -> "SyntaxNode":
         """
         Fix some of the inputs of the operation and return a new
         `SyntaxNode`.
@@ -41,7 +46,7 @@ class SyntaxNode(ABC):
         # pylint: disable=import-outside-toplevel
         from .unions import Compose
 
-        partial_inputs = SyntaxLeaf(Const(inputs))
+        partial_inputs = SyntaxLeaf(Const(inputs, output_keys=output_keys))
 
         append_partial_inputs = SyntaxBranch(Append, children=[partial_inputs])
 
