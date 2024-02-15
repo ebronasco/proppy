@@ -16,20 +16,20 @@ Define the types used in the type hints.
     - Alias for the built-in `dict` type.
     - Represents a nested dictionary where the values are types.
 
-4. `PassItem`
-    - The type of the items of the `Iterable` used to initialize `Pass`.
+4. `LetItem`
+    - The type of the items of the `Iterable` used to initialize `Let`.
     - Union of the types:
-        - `str`: the key to be "passed through",
+        - `str`: the key to be "let through",
         - `(str,)`: alias of `str`,
         - `(old: str, new: str)`: rename the key,
         - `(old: str, new: str, type: Type)`: rename the key and ensure the
             correct type.
 
-5. `PassAlias`
-    - Used to initialize `Pass`.
+5. `LetAlias`
+    - Used to initialize `Let`.
     - Union of the types:
-        - `PassItem`,
-        - `Iterable[PassItem]`,
+        - `LetItem`,
+        - `Iterable[LetItem]`,
 """
 
 from typing import (
@@ -52,14 +52,14 @@ NestedDict = dict
 
 TypeTree = dict  # nested dict with types as values
 
-PassItem = Union[
+LetItem = Union[
     str,
     Tuple[str],
     Tuple[str, str],
     Tuple[str, str, Type],
 ]
 
-PassAlias = Union[
-    PassItem,
-    Iterable[PassItem],
+LetAlias = Union[
+    LetItem,
+    Iterable[LetItem],
 ]

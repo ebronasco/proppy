@@ -2,20 +2,23 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../")
 
-from proppy.syntax_tree import *
+from proppy.syntax_nodes import *
 
-from proppy.base import *
+from proppy.base.run import Run
+from proppy.base.const import Const
+from proppy.base.id import N
+from proppy.base.empty import E
 
 
 def test_inputs():
-    op = Lambda({
+    op = Run({
         'a': lambda s, x, y: x + y,
     })
 
     assert op(x=1, y=10, z=100) == {'a': 11}
 
 def test_partial():
-    op = Lambda({
+    op = Run({
         'a': lambda s, x, y: x + y,
     })
 
@@ -24,12 +27,12 @@ def test_partial():
     assert op.partial(x=1)(y=10) == {'a': 11}
 
 def test_composition():
-    op1 = Lambda({
+    op1 = Run({
         'a': lambda s, x: x + 1,
         'b': lambda s, x, y: x + y,
     })
 
-    op2 = Lambda({
+    op2 = Run({
         'c': lambda s, a, b: a + b,
     })
 
@@ -39,16 +42,16 @@ def test_composition():
 
 
 def test_concatenation():
-    op1 = Return({
+    op1 = Const({
         'a': 1,
     })
 
-    op2 = Lambda({
+    op2 = Run({
         'b': lambda s, x: x + 1,
         'c': lambda s, y: y + 1,
     })
 
-    op3 = Lambda({
+    op3 = Run({
         'd': lambda s, z: z * 2,
     })
 
@@ -58,7 +61,7 @@ def test_concatenation():
 
 
 def test_append():
-    op = Lambda({
+    op = Run({
         'a': lambda s, x: x + 1,
     })
 
@@ -68,12 +71,12 @@ def test_append():
 
 
 def test_composition_append():
-    op1 = Lambda({
+    op1 = Run({
         'a': lambda s, x: x + 1,
         'b': lambda s, x, y: x + y,
     })
 
-    op2 = Lambda({
+    op2 = Run({
         'c': lambda s, a, b: a + b,
     })
 
