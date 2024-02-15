@@ -5,6 +5,7 @@ Defines the `Operation` superclass and some fundamental operations.
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from copy import deepcopy
+from inspect import getfullargspec
 
 import typing as t
 import functools
@@ -13,14 +14,9 @@ from pydash import py_
 
 from .syntax_tree import ensure_syntax_node
 
-from .tree_utils import (
-    keys_from_callable,
-    nested_get,
-    nested_set,
-)
-
 from .types import (
     Key,
+    KeyPath,
     FlatDict,
     NestedDict,
     PassAlias,
@@ -32,6 +28,36 @@ from .validator import (
 
 if t.TYPE_CHECKING:
     from .syntax_tree import SyntaxNode
+
+
+def input_keys_from_callable(
+        func: t.Callable,
+        start_at: t.Optional[int] = 0,
+) -> t.Set[Key]:
+    """
+    Build an input type tree of a callable.
+
+    Args:
+        func: The callable whose input type tree is built.
+        start_at: Ignore the arguments at positions before `start_at`.
+
+    **Examples:**
+    ```python
+    >>> input_keys_from_callable(lambda x, y: x) \
+    == {('x', t.Any), ('y', t.Any)}
+    True
+    >>> def a(s: str, b: bool):
+    ...     pass
+    ...
+    >>> input_keys_from_callable(a) \
+    == {('s', str), ('b', bool)}
+    True
+
+    ```
+    """
+    argspec = getfullargspec(func)
+    args = argspec.args[start_at:]
+    return set((k, argspec.annotations.get(k, t.Any)) for k in args)
 
 
 def ensure_typed_keys(
@@ -83,7 +109,7 @@ class Operation(ABC):
         """
 
         if input_keys is None:
-            input_keys = keys_from_callable(self.run, start_at=1)
+            input_keys = input_keys_from_callable(self.run, start_at=1)
 
         self.input_keys = ensure_typed_keys(input_keys)
         self.output_keys = ensure_typed_keys(output_keys)
@@ -126,7 +152,7 @@ class Operation(ABC):
 
         try:
             valid_inputs = self.validate_input(inputs)
-        except Exception as e:
+        except Exception as e:  # catch validator errors
             _error_msg = ["Error occured in the operation:\n",
                           repr(self), "\n",
                           "Input:\n",
@@ -142,7 +168,7 @@ class Operation(ABC):
 
         try:
             valid_outputs = self.validate_output(outputs)
-        except Exception as e:
+        except Exception as e:  # catch validator errors
             _error_msg = ["Error occured in the operation:\n",
                           repr(self), "\n",
                           "Output\n",
@@ -316,7 +342,7 @@ class Return(Operation):
         self.output = deepcopy(output)
 
         if output_keys is None:
-            output_keys = set(output.keys())
+            output_keys = {(k, get_type(v)) for k, v in output.items()}
 
         super().__init__(
             input_keys=None,
@@ -386,7 +412,7 @@ class Function(Operation):
             name: Name of the function used for debug.
         """
         if input_keys is None:  # mypy: ignore
-            input_keys = keys_from_callable(func, start_at=1)
+            input_keys = input_keys_from_callable(func, start_at=1)
 
         if name is None:  # mypy: ignore
             name = func.__name__
@@ -450,7 +476,7 @@ class Lambda(Operation):
 
             output_keys.add(key)
 
-            func_input_keys = keys_from_callable(func, start_at=1)
+            func_input_keys = input_keys_from_callable(func, start_at=1)
 
             input_keys = input_keys.union(func_input_keys)
 
@@ -645,6 +671,88 @@ def ensure_operation(
         raise TypeError(_error_msg)
 
     return Pass(obj)
+
+
+def nested_get(
+        data: NestedDict,
+        key: KeyPath,
+) -> t.Any:
+    """
+    Retrive an element at `key` from `data` nested dict.
+
+    **Raises:** `KeyError` if `key` is not found in `data`.
+
+    **Examples:**
+    ```python
+    >>> nested_get({'a': 1}, 'a')
+    1
+    >>> nested_get({'a': {'b': 1}}, 'a.b')
+    1
+    >>> nested_get({}, 'a')
+    Traceback (most recent call last):
+    ...
+    KeyError: 'The key "a" is not found in "{}"'
+
+    ```
+    """
+    value = py_.get(data, key, default=KeyError)
+
+    if value is KeyError:
+        _error_msg = f"The key \"{key}\" is not found in \"{repr(data)}\""
+        raise KeyError(_error_msg)
+
+    return value
+
+
+def nested_set(
+        data: NestedDict,
+        key: KeyPath,
+        value: t.Any,
+) -> NestedDict:
+    """
+    Set an element at `key` in `data` to `value`.
+
+    **Examples:**
+    ```python
+    >>> data = {}
+    >>> nested_set(data, 'a', 1) == {'a': 1}
+    True
+    >>> data == {'a': 1}
+    True
+    >>> nested_set(data, 'b.c', 2) == {'a': 1, 'b': {'c': 2}}
+    True
+    >>> data == {'a': 1, 'b': {'c': 2}}
+    True
+    >>> nested_set(data, 'a.d', 3)
+    Traceback (most recent call last):
+    ...
+    AttributeError: 'int' object has no attribute 'd'
+
+    ```
+    """
+    return py_.set_(data, key, value)
+
+
+def get_type(obj):
+    """
+    Return the type of `obj`. If `obj` is a function, return `typing.Callable`.
+
+    **Examples:**
+    ```python
+    >>> get_type(1)
+    <class 'int'>
+    >>> get_type(lambda x: x)
+    typing.Callable
+    >>> get_type({'a': 1})
+    <class 'dict'>
+
+    ```
+    """
+
+    if callable(obj):
+        return t.Callable
+
+    return type(obj)
 
 
 N = Id()

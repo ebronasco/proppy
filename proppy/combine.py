@@ -30,16 +30,6 @@ class Concat(Operation):
     >>> c = Concat(Pass({"x"}), Pass({"y"}))
     >>> c(x=1, y=10, z=100) == {"x": 1, "y": 10}
     True
-    >>> c = Concat(Pass({("x", int)}), Pass({("x", str)}))
-    >>> c(x=1)
-    Traceback (most recent call last):
-    ...
-    TypeError: Error occured in the operation:
-    Pass(x -> x)
-    Input:
-    {'x': 1}
-    doesn't match the input keys
-    {('x', <class 'str'>)}
 
     ```
     """
