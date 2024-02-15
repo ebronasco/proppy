@@ -6,14 +6,18 @@ from collections.abc import Iterable
 
 import typing as t
 
+from .base.let import ensure_operation
+from .base.append import Append
+from .base.const import Const
+
 from .types import (
     NestedDict,
-    PassAlias,
+    LetAlias,
 )
 
 
 if t.TYPE_CHECKING:
-    from .base import Operation
+    from .base.operation import Operation
 
 
 class SyntaxNode(ABC):
@@ -34,13 +38,10 @@ class SyntaxNode(ABC):
         """
 
         # Import here to avoid circular import.
-        from .combine import Compose  # pylint: disable=import-outside-toplevel
-        from .base import (  # pylint: disable=import-outside-toplevel
-            Append,
-            Return,
-        )
+        # pylint: disable=import-outside-toplevel
+        from .unions import Compose
 
-        partial_inputs = SyntaxLeaf(Return(inputs))
+        partial_inputs = SyntaxLeaf(Const(inputs))
 
         append_partial_inputs = SyntaxBranch(Append, children=[partial_inputs])
 
@@ -52,17 +53,15 @@ class SyntaxNode(ABC):
         return operation(**inputs)
 
     def __pos__(self) -> "SyntaxNode":
-        # Import here to avoid circular import.
-        from .base import Append  # pylint: disable=import-outside-toplevel
 
         return SyntaxBranch(Append, children=[self])
 
     def __or__(
             self,
-            other: t.Union["SyntaxNode", PassAlias],
+            other: t.Union["SyntaxNode", LetAlias],
     ) -> "SyntaxNode":
         # Import here to avoid circular import.
-        from .combine import Compose  # pylint: disable=import-outside-toplevel
+        from .unions import Compose  # pylint: disable=import-outside-toplevel
 
         other = ensure_syntax_node(other)
 
@@ -72,10 +71,10 @@ class SyntaxNode(ABC):
 
     def __ror__(
             self,
-            other: t.Union["SyntaxNode", PassAlias],
+            other: t.Union["SyntaxNode", LetAlias],
     ) -> "SyntaxNode":
         # Import here to avoid circular import.
-        from .combine import Compose  # pylint: disable=import-outside-toplevel
+        from .unions import Compose  # pylint: disable=import-outside-toplevel
 
         other = ensure_syntax_node(other)
 
@@ -85,10 +84,10 @@ class SyntaxNode(ABC):
 
     def __and__(
             self,
-            other: t.Union["SyntaxNode", PassAlias],
+            other: t.Union["SyntaxNode", LetAlias],
     ) -> "SyntaxNode":
         # Import here to avoid circular import.
-        from .combine import Concat  # pylint: disable=import-outside-toplevel
+        from .unions import Concat  # pylint: disable=import-outside-toplevel
 
         other = ensure_syntax_node(other)
 
@@ -98,10 +97,10 @@ class SyntaxNode(ABC):
 
     def __rand__(
             self,
-            other: t.Union["SyntaxNode", PassAlias],
+            other: t.Union["SyntaxNode", LetAlias],
     ) -> "SyntaxNode":
         # Import here to avoid circular import.
-        from .combine import Concat  # pylint: disable=import-outside-toplevel
+        from .unions import Concat  # pylint: disable=import-outside-toplevel
 
         other = ensure_syntax_node(other)
 
@@ -118,11 +117,8 @@ class SyntaxLeaf(SyntaxNode):
 
     def __init__(
             self,
-            operation: t.Union["Operation", PassAlias],
+            operation: t.Union["Operation", LetAlias],
     ):
-        # Import here to avoid circular import.
-        # pylint: disable=import-outside-toplevel
-        from .base import ensure_operation
 
         operation = ensure_operation(operation)
 
@@ -196,13 +192,9 @@ class SyntaxBranch(SyntaxNode):
 
 
 def ensure_syntax_node(
-        obj: t.Union[SyntaxNode, PassAlias],
+        obj: t.Union[SyntaxNode, LetAlias],
 ) -> SyntaxNode:
     """Ensures that `obj` is a syntax node."""
-    # Import here to avoid circular import.
-    # pylint: disable=import-outside-toplevel
-    from .base import ensure_operation
-
     if isinstance(obj, SyntaxNode):
         return obj
 

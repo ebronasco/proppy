@@ -5,19 +5,17 @@ import typing as t
 
 from pydash import py_
 
-from .base import (
-    Operation,
-    ensure_operation,
-)
+from .base.operation import Operation
+from .base.let import ensure_operation
 
 from .types import (
     Key,
     NestedDict,
-    PassAlias,
+    LetAlias,
 )
 
 if t.TYPE_CHECKING:
-    from .syntax_tree import SyntaxNode
+    from .syntax_nodes import SyntaxNode
 
 
 class Concat(Operation):
@@ -26,8 +24,8 @@ class Concat(Operation):
 
     **Examples:**
     ```python
-    >>> from .base import Pass
-    >>> c = Concat(Pass({"x"}), Pass({"y"}))
+    >>> from .base.let import Let
+    >>> c = Concat(Let({"x"}), Let({"y"}))
     >>> c(x=1, y=10, z=100) == {"x": 1, "y": 10}
     True
 
@@ -36,11 +34,11 @@ class Concat(Operation):
 
     def __init__(
             self,
-            *operation_aliases: t.Union[Operation, PassAlias],
+            *operation_aliases: t.Union[Operation, LetAlias],
     ):
         """
         Args:
-            *operation_aliases: Operations or aliases of Pass.
+            *operation_aliases: Operations or aliases of `Let`.
         """
         operations = tuple(ensure_operation(op) for op in operation_aliases)
 
@@ -77,9 +75,8 @@ class Concat(Operation):
         return output
 
     def get_syntax_node(self) -> "SyntaxNode":
-        # Import it here to avoid circular import.
         # pylint: disable=import-outside-toplevel
-        from .syntax_tree import SyntaxBranch
+        from .syntax_nodes import SyntaxBranch
 
         return SyntaxBranch(Concat)
 
@@ -91,23 +88,23 @@ class Compose(Operation):
 
     **Examples:**
     ```python
-    >>> from .base import Pass
+    >>> from .base.let import Let
     >>> c = Compose(
-    ...     Pass({("x", "a"), ("y", "b"), "z"}),
-    ...     Pass({("a", "u"), "b", "z"})
+    ...     Let({("x", "a"), ("y", "b"), "z"}),
+    ...     Let({("a", "u"), "b", "z"})
     ... )
     >>> c(x=1, y=10, z=100) == {"u": 1, "b": 10, "z": 100}
     True
     >>> c = Compose(
-    ...     Pass({"x"}),
-    ...     Pass({"y"})
+    ...     Let({"x"}),
+    ...     Let({"y"})
     ... )
     Traceback (most recent call last):
     ...
     TypeError: The output doesn't match the input at position 2.
     The output tree
     {('x', typing.Any)}
-    doesn't match the input tree of "Pass(y -> y)"
+    doesn't match the input tree of "Let(y -> y)"
     {('y', typing.Any)}
 
     ```
@@ -115,11 +112,11 @@ class Compose(Operation):
 
     def __init__(
             self,
-            *operation_aliases: t.Union[Operation, PassAlias],
+            *operation_aliases: t.Union[Operation, LetAlias],
     ):
         """
         Args:
-            *operation_aliases: Operations or aliases of Pass.
+            *operation_aliases: Operations or aliases of `Let`.
         """
         operations = tuple(ensure_operation(op) for op in operation_aliases)
 
@@ -174,8 +171,7 @@ class Compose(Operation):
         return output
 
     def get_syntax_node(self) -> "SyntaxNode":
-        # Import it here to avoid circular import.
         # pylint: disable=import-outside-toplevel
-        from .syntax_tree import SyntaxBranch
+        from .syntax_nodes import SyntaxBranch
 
         return SyntaxBranch(Compose)
