@@ -198,9 +198,9 @@ def keys_match(
 
     for name2, type2 in keys2:
         if name2 not in keys1_dict:
-            return False
-
-        if not rt.is_subtype(keys1_dict[name2], type2):
+            if not rt.is_subtype(None, type2) or type2 is t.Any:
+                return False
+        elif not rt.is_subtype(keys1_dict[name2], type2):
             return False
 
     return True
