@@ -17,7 +17,31 @@ from pydash import py_
 from .types import (
     NestedDict,
     TypeTree,
+    CustomKey,
 )
+
+
+class Typed(CustomKey):
+
+    def __init__(self, name: str, type_: t.Type):
+        self.name = name
+        self.type_ = type_
+
+    def __str__(self):
+        return self.name
+
+    def match(self, other):
+        return (self.name == other.name) and (rt.is_subtype(self.type_, other.type_)))
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+
+        return (self.name == other.name) and (self.type_ == other.type_)
+
+    def __hash__(self):
+        return hash((self.name, self.type_))
+
 
 
 # pylint: disable=too-few-public-methods

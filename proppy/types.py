@@ -40,9 +40,12 @@ from typing import (
     Type,
 )
 
+from abc import ABC, abstractmethod
+
 import pydash.types as py_t
 
-Key = Any
+
+Key = Union[str, "CustomKey"]
 
 KeyPath = py_t.PathT
 
@@ -63,3 +66,29 @@ LetAlias = Union[
     LetItem,
     Iterable[LetItem],
 ]
+
+
+class CustomKey(ABC):
+    @abstractmethod
+    def match(self, other: Key) -> bool:
+        """
+        Check that the set of of accepted values for the key `self` is a
+        subset of the set of accepted values for the key `other`.
+        """
+        _error_msg = "The method `match` must be implemented by the subclass."
+        raise NotImplementedError(_error_msg)
+
+    @abstractmethod
+    def __str__(self) -> str:
+        _error_msg = "The method `__str__` must be implemented by the subclass."
+        raise NotImplementedError(_error_msg)
+
+    @abstractmethod
+    def __eq__(self, other) -> bool:
+        _error_msg = "The method `__eq__` must be implemented by the subclass."
+        raise NotImplementedError(_error_msg)
+
+    @abstractmethod
+    def __hash__(self) -> int:
+        _error_msg = "The method `__hash__` must be implemented by the subclass."
+        raise NotImplementedError(_error_msg)
