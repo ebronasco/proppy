@@ -14,34 +14,13 @@ from typing_extensions import TypedDict
 
 from pydash import py_
 
-from .types import (
-    NestedDict,
-    TypeTree,
-    CustomKey,
+from .keys import (
+    Typed,
+    Key,
 )
 
 
-class Typed(CustomKey):
-
-    def __init__(self, name: str, type_: t.Type):
-        self.name = name
-        self.type_ = type_
-
-    def __str__(self):
-        return self.name
-
-    def match(self, other):
-        return (self.name == other.name) and (rt.is_subtype(self.type_, other.type_)))
-
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return False
-
-        return (self.name == other.name) and (self.type_ == other.type_)
-
-    def __hash__(self):
-        return hash((self.name, self.type_))
-
+TypeTree = t.Dict
 
 
 # pylint: disable=too-few-public-methods
@@ -68,11 +47,22 @@ class PydanticFactory(ValidatorFactory):
     def __init__(self, **kwargs):
         self.config = kwargs
 
-    def __call__(self, keys):
+    def __call__(self, keys: t.Iterable[Key]):
         # pylint: disable=import-outside-toplevel
         from pydantic import TypeAdapter
 
-        type_tree = self._build_tree(keys, default=t.Any)
+        typed_keys = set()
+
+        for key in keys:
+            if isinstance(key, Typed):
+                typed_keys.add(key)
+            elif isinstance(key, str):
+                typed_keys.add(Typed(key, t.Any))
+            else:
+                _error_msg = f"Unsupported key type: {repr(key)}"
+                raise TypeError(_error_msg)
+
+        type_tree = self._build_tree(typed_keys)
 
         typed_dict = self._to_typed_dict("TypeTree", type_tree)
 
@@ -87,61 +77,61 @@ class PydanticFactory(ValidatorFactory):
 
     def _build_tree(
             self,
-            elems: t.Iterable[t.Union[t.Tuple, t.Any]],
-            default: t.Any = None,
-    ) -> NestedDict:
+            elems: t.Iterable[Typed],
+    ) -> TypeTree:
         """
         Builds a nested dict based on `elems`.
 
-        Elements of `elems` are `(v1,v2,...)`. then it builds a nested dict
-        with keys `v1` and values `(v2,...)`. If `(v2,...)` is a singleton,
-        then its replaced by `v2`.
-
-
         Args:
-            elems: Iterable `elems` of `(v1,v2,...)`. Elements which are not
-                tuples are replaced by the tuple `(element, default)`.
-            default: Default value of the tree if only `v1` is given.
+            elems: Iterable of `Typed(name, type)`.
 
-        **Raises:** `TypeError` if `elem` is not `PassAliasT`.
+        **Raises:** `TypeError` if `elem` is of unsupported type.
 
         **Examples:**
         ```python
         >>> pf = PydanticFactory()
-        >>> pf._build_tree({('a', int), 'b', 'c.d'}) == \
-        {'a': int, 'b': None, 'c': {'d': None}}
+        >>> pf._build_tree({
+        ...     Typed('a', int),
+        ...     Typed('b', t.Any),
+        ...     Typed('c.d', t.Any)
+        ... }) == {'a': int, 'b': t.Any, 'c': {'d': t.Any}}
         True
         >>> pf._build_tree(True)
         Traceback (most recent call last):
         ...
-        TypeError: The argument `elems` is of unsupported type:
-        True
+        TypeError: The argument `elems` must be an iterable.
+        Value of `elems`: True
+        >>> pf._build_tree([True])
+        Traceback (most recent call last):
+        ...
+        TypeError: The elements of `elems` must be instances of `Typed`.
+        Value of `elems` element: True
+
 
         ```
         """
-        if isinstance(elems, Iterable) and not isinstance(elems, dict):
-            key_value_pairs = []
-            for elem in elems:
-                if not isinstance(elem, tuple) or len(elem) == 1:
-                    key_value_pairs.append((elem, default))
-                    continue
+        if not isinstance(elems, Iterable):
+            _error_msg = "\n".join([
+                "The argument `elems` must be an iterable.",
+                f"Value of `elems`: {repr(elems)}"
+            ])
+            raise TypeError(_error_msg)
 
-                if len(elem) == 2:
-                    key_value_pairs.append((elem[0], elem[1]))
-                    continue
+        key_value_pairs = []
+        for elem in elems:
+            if not isinstance(elem, Typed):
+                _error_msg = "\n".join([
+                    "The elements of `elems` must be instances of `Typed`.",
+                    f"Value of `elems` element: {repr(elem)}"
+                ])
+                raise TypeError(_error_msg)
 
-                key_value_pairs.append((elem[0], elem[1:]))
+            key_value_pairs.append((str(elem), elem.get_type()))
 
-            if len(key_value_pairs) > 0:
-                return py_.zip_object_deep(key_value_pairs)
+        if len(key_value_pairs) > 0:
+            return py_.zip_object_deep(key_value_pairs)
 
-            return {}
-
-        _error_msg = "\n".join([
-            "The argument `elems` is of unsupported type:",
-            repr(elems)
-        ])
-        raise TypeError(_error_msg)
+        return {}
 
     def _to_typed_dict(
             self,

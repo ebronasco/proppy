@@ -6,7 +6,10 @@ from copy import deepcopy
 
 from .operation import Operation
 
-from ..types import NestedDict, Key
+from ..keys import Key, Typed
+
+
+NestedDict = t.Dict
 
 
 def get_type(obj):
@@ -57,7 +60,7 @@ class Const(Operation):
         self.output = deepcopy(output)
 
         if output_keys is None:
-            output_keys = {(k, get_type(v)) for k, v in output.items()}
+            output_keys = {Typed(k, get_type(v)) for k, v in output.items()}
 
         super().__init__(
             input_keys=None,

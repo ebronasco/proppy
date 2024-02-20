@@ -6,14 +6,22 @@ import typing as t
 
 from pydash import py_
 
-from .operation import Operation
+from .operation import (
+    Operation,
+    LetAlias,
+)
 
-from ..types import NestedDict, LetAlias, KeyPath
+from ..keys import Key
+
+
+FlatDict = t.Dict
+
+NestedDict = t.Dict
 
 
 def nested_get(
         data: NestedDict,
-        key: KeyPath,
+        key: Key,
 ) -> t.Any:
     """
     Retrive an element at `key` from `data` nested dict.
@@ -44,7 +52,7 @@ def nested_get(
 
 def nested_set(
         data: NestedDict,
-        key: KeyPath,
+        key: Key,
         value: t.Any,
 ) -> NestedDict:
     """
@@ -85,46 +93,41 @@ class Let(Operation):
     ```
     """
 
-    def __init__(self, keys: LetAlias):
+    def __init__(self, connections: LetAlias):
         """
         Args:
-            keys: Specifies the keys to let through.
+            connections: Specifies the keys to let through.
             Check the definition of `LetAlias` for details.
         """
 
-        iterable_keys = keys
-        if not isinstance(keys, Iterable):
-            iterable_keys = {keys}
+        if not isinstance(connections, Iterable):
+            iterable_conns = {connections}
+        else:
+            iterable_conns = t.cast(t.Set, connections)
 
-        input_keys = set()
-        output_keys = set()
-        connections = set()
+        input_keys: t.Set[Key] = set()
+        output_keys: t.Set[Key] = set()
 
-        for key in iterable_keys:
-            if not isinstance(key, tuple):
-                tuple_key = (key,)
+        self.connections = set()
+
+        for conn in iterable_conns:
+
+            if not isinstance(conn, tuple):
+                tuple_conn = (conn,)
             else:
-                tuple_key = t.cast(t.Tuple, key)
+                tuple_conn = t.cast(t.Tuple, conn)
 
-            if len(tuple_key) == 1:
-                input_keys.add(tuple_key[0])
-                output_keys.add(tuple_key[0])
-                connections.add((tuple_key[0], tuple_key[0]))
-            elif len(tuple_key) == 2:
-                if isinstance(tuple_key[1], str):
-                    input_keys.add(tuple_key[0])
-                    output_keys.add(tuple_key[1])
-                    connections.add(tuple_key)
-                else:
-                    input_keys.add(tuple_key)
-                    output_keys.add(tuple_key)
-                    connections.add((tuple_key[0], tuple_key[0]))
-            elif len(tuple_key) == 3:
-                input_keys.add((tuple_key[0], tuple_key[2]))
-                output_keys.add((tuple_key[1], tuple_key[2]))
-                connections.add((tuple_key[0], tuple_key[1]))
+            if len(tuple_conn) == 1:
+                input_keys.add(tuple_conn[0])
+                output_keys.add(tuple_conn[0])
 
-        self.connections = connections
+                self.connections.add((tuple_conn[0], tuple_conn[0]))
+
+            elif len(tuple_conn) == 2:
+                input_keys.add(tuple_conn[0])
+                output_keys.add(tuple_conn[1])
+
+                self.connections.add(tuple_conn)
 
         super().__init__(
             input_keys=input_keys,
@@ -143,7 +146,14 @@ class Let(Operation):
         output: NestedDict = {}
 
         for conn in self.connections:
-            nested_set(output, conn[1], nested_get(inputs, conn[0]))
+            nested_set(
+                output,
+                str(conn[1]),
+                nested_get(
+                    inputs,
+                    str(conn[0])
+                )
+            )
 
         return output
 

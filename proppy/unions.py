@@ -3,18 +3,17 @@ Contains the operations that combine multiple operations into one.
 """
 import typing as t
 
-import runtype as rt
-
 from pydash import py_
 
-from .base.operation import Operation
+from .base.operation import Operation, LetAlias
+
 from .base.let import ensure_operation
 
-from .types import (
-    Key,
-    NestedDict,
-    LetAlias,
-)
+from .keys import Key
+
+
+NestedDict = t.Dict
+
 
 if t.TYPE_CHECKING:
     from .syntax_nodes import SyntaxNode
@@ -105,9 +104,9 @@ class Compose(Operation):
     ...
     TypeError: The output doesn't match the input at position 2.
     The output tree
-    {('x', typing.Any)}
+    {'x'}
     doesn't match the input tree of "Let(y -> y)"
-    {('y', typing.Any)}
+    {'y'}
 
     ```
     """
@@ -194,13 +193,18 @@ def keys_match(
         True if the keys match, False otherwise.
     """
 
-    keys1_dict = dict(keys1)
+    keys1_dict = {str(k): k for k in keys1}
 
-    for name2, type2 in keys2:
-        if name2 not in keys1_dict:
-            if not rt.is_subtype(None, type2) or type2 is t.Any:
+    for k2 in keys2:
+        if str(k2) not in keys1_dict:
+            if isinstance(k2, str):
                 return False
-        elif not rt.is_subtype(keys1_dict[name2], type2):
+
+            if not k2.match(None):
+                return False
+
+        elif not isinstance(k2, str) \
+                and not k2.match(keys1_dict[str(k2)]):
             return False
 
     return True

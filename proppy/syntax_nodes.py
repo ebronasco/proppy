@@ -7,18 +7,19 @@ from collections.abc import Iterable
 import typing as t
 
 from .base.let import ensure_operation
+
 from .base.append import Append
+
 from .base.const import Const
 
-from .types import (
-    NestedDict,
-    LetAlias,
-    Key,
-)
+from .keys import Key
+
+
+NestedDict = t.Dict
 
 
 if t.TYPE_CHECKING:
-    from .base.operation import Operation
+    from .base.operation import Operation, LetAlias
 
 
 class SyntaxNode(ABC):
@@ -63,7 +64,7 @@ class SyntaxNode(ABC):
 
     def __or__(
             self,
-            other: t.Union["SyntaxNode", LetAlias],
+            other: t.Union["SyntaxNode", "LetAlias"],
     ) -> "SyntaxNode":
         # Import here to avoid circular import.
         from .unions import Compose  # pylint: disable=import-outside-toplevel
@@ -76,7 +77,7 @@ class SyntaxNode(ABC):
 
     def __ror__(
             self,
-            other: t.Union["SyntaxNode", LetAlias],
+            other: t.Union["SyntaxNode", "LetAlias"],
     ) -> "SyntaxNode":
         # Import here to avoid circular import.
         from .unions import Compose  # pylint: disable=import-outside-toplevel
@@ -89,7 +90,7 @@ class SyntaxNode(ABC):
 
     def __and__(
             self,
-            other: t.Union["SyntaxNode", LetAlias],
+            other: t.Union["SyntaxNode", "LetAlias"],
     ) -> "SyntaxNode":
         # Import here to avoid circular import.
         from .unions import Concat  # pylint: disable=import-outside-toplevel
@@ -102,7 +103,7 @@ class SyntaxNode(ABC):
 
     def __rand__(
             self,
-            other: t.Union["SyntaxNode", LetAlias],
+            other: t.Union["SyntaxNode", "LetAlias"],
     ) -> "SyntaxNode":
         # Import here to avoid circular import.
         from .unions import Concat  # pylint: disable=import-outside-toplevel
@@ -122,7 +123,7 @@ class SyntaxLeaf(SyntaxNode):
 
     def __init__(
             self,
-            operation: t.Union["Operation", LetAlias],
+            operation: t.Union["Operation", "LetAlias"],
     ):
 
         operation = ensure_operation(operation)
@@ -197,7 +198,7 @@ class SyntaxBranch(SyntaxNode):
 
 
 def ensure_syntax_node(
-        obj: t.Union[SyntaxNode, LetAlias],
+        obj: t.Union[SyntaxNode, "LetAlias"],
 ) -> SyntaxNode:
     """Ensures that `obj` is a syntax node."""
     if isinstance(obj, SyntaxNode):

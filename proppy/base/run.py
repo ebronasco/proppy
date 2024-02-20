@@ -2,13 +2,18 @@
 
 import typing as t
 
-from ..types import NestedDict, Key, FlatDict
+from ..keys import Key
 
 from .operation import (
     Operation,
     validator_factory,
     input_keys_from_callable,
 )
+
+
+FlatDict = t.Dict
+
+NestedDict = t.Dict
 
 
 class Run(Operation):

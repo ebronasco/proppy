@@ -2,11 +2,12 @@
 
 import typing as t
 
-from ..types import NestedDict, LetAlias
-
-from .operation import Operation
+from .operation import Operation, LetAlias
 
 from .let import ensure_operation
+
+
+NestedDict = t.Dict
 
 
 class Append(Operation):

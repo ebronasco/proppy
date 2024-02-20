@@ -7,7 +7,10 @@ import typing as t
 
 from .operation import Operation, input_keys_from_callable
 
-from ..types import NestedDict, Key
+from ..keys import Key
+
+
+NestedDict = t.Dict
 
 
 def operation(
@@ -20,7 +23,8 @@ def operation(
 
     **Examples:**
     ```python
-    >>> @operation({("res.a", float)})
+    >>> from ..keys import Typed
+    >>> @operation({Typed("res.a", float)})
     ... def add(s, x, y):
     ...     return {"res": {"a": x + y}}
     >>> add(x=1, y=2)
@@ -44,8 +48,9 @@ class Function(Operation):
 
     **Examples**
     ```python
+    >>> from ..keys import Typed
     >>> add = lambda s, x, y: {'res': {'a': x + y}}
-    >>> op = Function({("res.a", float)}, add)
+    >>> op = Function({Typed("res.a", float)}, add)
     >>> op(x=1, y=2)
     {'res': {'a': 3.0}}
 
