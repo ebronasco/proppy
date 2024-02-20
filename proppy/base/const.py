@@ -6,8 +6,10 @@ from copy import deepcopy
 
 from .operation import Operation
 
-from ..types import NestedDict, Key
-from ..validators import Typed
+from ..keys import Key, Typed
+
+
+NestedDict = t.Dict
 
 
 def get_type(obj):

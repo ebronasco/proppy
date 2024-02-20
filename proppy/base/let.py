@@ -6,14 +6,22 @@ import typing as t
 
 from pydash import py_
 
-from .operation import Operation
+from .operation import (
+    Operation,
+    LetAlias,
+)
 
-from ..types import NestedDict, LetAlias, KeyPath, Key
+from ..keys import Key
+
+
+FlatDict = t.Dict
+
+NestedDict = t.Dict
 
 
 def nested_get(
         data: NestedDict,
-        key: KeyPath,
+        key: Key,
 ) -> t.Any:
     """
     Retrive an element at `key` from `data` nested dict.
@@ -44,7 +52,7 @@ def nested_get(
 
 def nested_set(
         data: NestedDict,
-        key: KeyPath,
+        key: Key,
         value: t.Any,
 ) -> NestedDict:
     """

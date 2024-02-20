@@ -1,8 +1,11 @@
 """Implements the `Empty` operation."""
 
+import typing as t
+
 from .operation import Operation
 
-from ..types import NestedDict
+
+NestedDict = t.Dict
 
 
 class Empty(Operation):

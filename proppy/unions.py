@@ -3,18 +3,17 @@ Contains the operations that combine multiple operations into one.
 """
 import typing as t
 
-import runtype as rt
-
 from pydash import py_
 
-from .base.operation import Operation
+from .base.operation import Operation, LetAlias
+
 from .base.let import ensure_operation
 
-from .types import (
-    Key,
-    NestedDict,
-    LetAlias,
-)
+from .keys import Key
+
+
+NestedDict = t.Dict
+
 
 if t.TYPE_CHECKING:
     from .syntax_nodes import SyntaxNode

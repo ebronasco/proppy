@@ -7,11 +7,26 @@ import typing as t
 
 import pydash as py_
 
-from ..validators import validator_factory, Typed
-from ..types import NestedDict, Key, LetAlias
+from ..validators import validator_factory
+
+from ..keys import Key, Typed
 
 if t.TYPE_CHECKING:
     from ..syntax_nodes import SyntaxNode
+
+
+NestedDict = t.Dict
+
+LetItem = t.Union[
+    Key,
+    t.Tuple[Key],
+    t.Tuple[Key, Key],
+]
+
+LetAlias = t.Union[
+    LetItem,
+    t.Iterable[LetItem],
+]
 
 
 def input_keys_from_callable(
@@ -28,13 +43,13 @@ def input_keys_from_callable(
     **Examples:**
     ```python
     >>> input_keys_from_callable(lambda x, y: x) \
-    == {('x', t.Any), ('y', t.Any)}
+    == {Typed('x', t.Any), Typed('y', t.Any)}
     True
     >>> def a(s: str, b: bool):
     ...     pass
     ...
     >>> input_keys_from_callable(a) \
-    == {('s', str), ('b', bool)}
+    == {Typed('s', str), Typed('b', bool)}
     True
 
     ```

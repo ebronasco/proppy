@@ -14,44 +14,13 @@ from typing_extensions import TypedDict
 
 from pydash import py_
 
-from .types import (
-    NestedDict,
-    TypeTree,
-    CustomKey,
+from .keys import (
+    Typed,
     Key,
 )
 
 
-class Typed(CustomKey):
-
-    def __init__(self, name: str, type_):
-        self.name = name
-        self.type_ = type_
-
-    def __str__(self):
-        return self.name
-
-    def get_type(self):
-        return self.type_
-
-    def match(self, other):
-        if other is None \
-                and rt.is_subtype(None, self.type_) \
-                and self.type_ is not t.Any:
-            return True
-
-        return (self.name == other.name) \
-            and (rt.is_subtype(other.type_, self.type_))
-
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return False
-
-        return (self.name == other.name) and (self.type_ == other.type_)
-
-    def __hash__(self):
-        return hash((self.name, self.type_))
-
+TypeTree = t.Dict
 
 
 # pylint: disable=too-few-public-methods
@@ -109,7 +78,7 @@ class PydanticFactory(ValidatorFactory):
     def _build_tree(
             self,
             elems: t.Iterable[Typed],
-    ) -> NestedDict:
+    ) -> TypeTree:
         """
         Builds a nested dict based on `elems`.
 
@@ -125,7 +94,7 @@ class PydanticFactory(ValidatorFactory):
         ...     Typed('a', int),
         ...     Typed('b', t.Any),
         ...     Typed('c.d', t.Any)
-        ... }) == {'a': int, 'b': None, 'c': {'d': None}}
+        ... }) == {'a': int, 'b': t.Any, 'c': {'d': t.Any}}
         True
         >>> pf._build_tree(True)
         Traceback (most recent call last):
@@ -136,7 +105,7 @@ class PydanticFactory(ValidatorFactory):
         Traceback (most recent call last):
         ...
         TypeError: The elements of `elems` must be instances of `Typed`.
-        Value of `elem`: [True]
+        Value of `elems` element: True
 
 
         ```
@@ -153,7 +122,7 @@ class PydanticFactory(ValidatorFactory):
             if not isinstance(elem, Typed):
                 _error_msg = "\n".join([
                     "The elements of `elems` must be instances of `Typed`.",
-                    f"Value of `elem`: {repr(elem)}"
+                    f"Value of `elems` element: {repr(elem)}"
                 ])
                 raise TypeError(_error_msg)
 
