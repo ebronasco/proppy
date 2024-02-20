@@ -38,6 +38,7 @@ from typing import (
     Iterable,
     Tuple,
     Type,
+    Optional,
 )
 
 from abc import ABC, abstractmethod
@@ -56,10 +57,9 @@ NestedDict = dict
 TypeTree = dict  # nested dict with types as values
 
 LetItem = Union[
-    str,
-    Tuple[str],
-    Tuple[str, str],
-    Tuple[str, str, Type],
+    Key,
+    Tuple[Key],
+    Tuple[Key, Key],
 ]
 
 LetAlias = Union[
@@ -70,10 +70,10 @@ LetAlias = Union[
 
 class CustomKey(ABC):
     @abstractmethod
-    def match(self, other: Key) -> bool:
+    def match(self, other: Optional[Key]) -> bool:
         """
-        Check that the set of of accepted values for the key `self` is a
-        subset of the set of accepted values for the key `other`.
+        Check that the set of of accepted values for the key `other` is a
+        subset of the set of accepted values for the key `self`.
         """
         _error_msg = "The method `match` must be implemented by the subclass."
         raise NotImplementedError(_error_msg)

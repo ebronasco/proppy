@@ -7,7 +7,7 @@ import typing as t
 
 import pydash as py_
 
-from ..validators import validator_factory
+from ..validators import validator_factory, Typed
 from ..types import NestedDict, Key, LetAlias
 
 if t.TYPE_CHECKING:
@@ -41,26 +41,7 @@ def input_keys_from_callable(
     """
     argspec = getfullargspec(func)
     args = argspec.args[start_at:]
-    return set((k, argspec.annotations.get(k, t.Any)) for k in args)
-
-
-def ensure_typed_keys(
-        keys: t.Set[Key],
-) -> t.Set[Key]:
-    """
-    Ensures that `keys` is a set of (`Key`, `type`).
-
-    Args:
-        keys: A set of keys
-    """
-    new_keys = set()
-    for key in keys:
-        if isinstance(key, tuple):
-            new_keys.add(key)
-        else:
-            new_keys.add((key, t.Any))
-
-    return new_keys
+    return set(Typed(k, argspec.annotations.get(k, t.Any)) for k in args)
 
 
 class Operation(ABC):
@@ -92,8 +73,8 @@ class Operation(ABC):
         if input_keys is None:
             input_keys = input_keys_from_callable(self.run, start_at=1)
 
-        self.input_keys = ensure_typed_keys(input_keys)
-        self.output_keys = ensure_typed_keys(output_keys)
+        self.input_keys = input_keys
+        self.output_keys = output_keys
 
         self.validate_input = validator_factory(input_keys)
         self.validate_output = validator_factory(output_keys)
