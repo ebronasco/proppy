@@ -75,7 +75,7 @@ class Typed(CustomKey):
         True
         >>> k1.match("x")
         False
-        >>> k2 = Typed("x", t.Any) 
+        >>> k2 = Typed("x", t.Any)
         >>> k2.match(Typed("x", int))
         True
         >>> k2.match(Typed("y", int))
@@ -87,14 +87,14 @@ class Typed(CustomKey):
         >>> k2.match(1)
         Traceback (most recent call last):
         ...
-        TypeError: The argument `other` must be a string or an
-        instance of `Typed`.
+        TypeError: The argument `other` must be a string or an \
+instance of `Typed`.
 
         ```
         """
 
         if other is None:
-            return rt.is_subtype(None, self.type_) \
+            return rt.is_subtype(type(None), self.type_) \
                 and self.type_ is not t.Any
 
         if isinstance(other, str):
