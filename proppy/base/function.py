@@ -96,4 +96,9 @@ class Function(Operation):
         return self._name
 
     def run(self, **inputs) -> NestedDict:
-        return self._func(self, **inputs)
+        result = self._func(self, **inputs)
+
+        if result is None:
+            return {}
+
+        return result
