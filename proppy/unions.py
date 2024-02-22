@@ -127,11 +127,15 @@ class Compose(Operation):
         output_keys: t.Set[Key] = operations[0].input_keys
 
         for i, op in enumerate(operations):
+            complement_keys: t.Set[Key] = get_complement_keys(
+                output_keys,
+                op.input_keys
+            )
+
             if append:
-                input_keys = input_keys.union(
-                    op.input_keys - output_keys
-                )
-            elif not keys_match(output_keys, op.input_keys):
+                input_keys = input_keys.union(complement_keys)
+
+            elif len(complement_keys) > 0:
                 _error_msg = "\n".join([
                     f"The output doesn't match the input at position {i+1}.",
                     "The output tree",
@@ -178,33 +182,37 @@ class Compose(Operation):
         return SyntaxBranch(Compose)
 
 
-def keys_match(
+def get_complement_keys(
         keys1: t.Set[Key],
         keys2: t.Set[Key],
-) -> bool:
+) -> t.Set[Key]:
     """
-    Check if the keys match.
+    Computes the keys of `keys2` that are not matched by any keys
+    from `keys1`.
 
     Args:
         keys1: Set of keys.
         keys2: Set of keys.
 
     Returns:
-        True if the keys match, False otherwise.
+        The set of keys that are not matched by any keys from
+        `keys1`.
     """
+
+    complement_keys: t.Set[Key] = set()
 
     keys1_dict = {str(k): k for k in keys1}
 
     for k2 in keys2:
         if str(k2) not in keys1_dict:
             if isinstance(k2, str):
-                return False
+                complement_keys.add(k2)
 
-            if not k2.match(None):
-                return False
+            elif not k2.match(None):
+                complement_keys.add(k2)
 
         elif not isinstance(k2, str) \
                 and not k2.match(keys1_dict[str(k2)]):
-            return False
+            complement_keys.add(k2)
 
-    return True
+    return complement_keys
