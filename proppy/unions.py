@@ -187,14 +187,16 @@ def get_complement_keys(
         keys2: t.Set[Key],
 ) -> t.Set[Key]:
     """
-    Check if the keys match.
+    Computes the keys of `keys2` that are not matched by any keys
+    from `keys1`.
 
     Args:
         keys1: Set of keys.
         keys2: Set of keys.
 
     Returns:
-        True if the keys match, False otherwise.
+        The set of keys that are not matched by any keys from
+        `keys1`.
     """
 
     complement_keys: t.Set[Key] = set()
