@@ -47,6 +47,9 @@ class Typed(CustomKey):
         self.name = name
         self.type_ = type_
 
+    def __repr__(self):
+        return f"{self.name}: {self.type_}"
+
     def __str__(self):
         return self.name
 
