@@ -14,7 +14,7 @@ NestedDict = t.Dict
 
 
 def operation(
-        output_keys: t.Set[Key],
+        output_keys: t.Optional[t.Set[Key]] = None,
         input_keys: t.Optional[t.Set[Key]] = None,
         name: t.Optional[str] = None,
 ) -> t.Union[Operation, t.Callable]:
@@ -50,7 +50,7 @@ class Function(Operation):
     ```python
     >>> from ..keys import Typed
     >>> add = lambda s, x, y: {'res': {'a': x + y}}
-    >>> op = Function({Typed("res.a", float)}, add)
+    >>> op = Function(add, {Typed("res.a", float)})
     >>> op(x=1, y=2)
     {'res': {'a': 3.0}}
 
@@ -59,8 +59,8 @@ class Function(Operation):
 
     def __init__(
             self,
-            output_keys: t.Set[Key],
             func: t.Callable,
+            output_keys: t.Optional[t.Set[Key]] = None,
             input_keys: t.Optional[t.Set[Key]] = None,
             name: t.Optional[str] = None,
     ):
@@ -75,6 +75,9 @@ class Function(Operation):
         """
         if input_keys is None:  # mypy: ignore
             input_keys = input_keys_from_callable(func, start_at=1)
+
+        if output_keys is None:
+            output_keys = set()
 
         if name is None:  # mypy: ignore
             name = func.__name__
