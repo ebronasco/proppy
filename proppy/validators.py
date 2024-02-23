@@ -10,9 +10,10 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 
 import typing as t
-from typing_extensions import TypedDict
 
 from pydash import py_
+
+from pydantic import ConfigDict, create_model
 
 from .keys import (
     Typed,
@@ -44,13 +45,13 @@ class PydanticFactory(ValidatorFactory):
     validators.
     """
 
-    def __init__(self, **kwargs):
-        self.config = kwargs
+    def __init__(self, config: t.Optional[ConfigDict] = None):
+        if config is None:
+            self.config = ConfigDict()
+        else:
+            self.config = config
 
     def __call__(self, keys: t.Iterable[Key]):
-        # pylint: disable=import-outside-toplevel
-        from pydantic import TypeAdapter
-
         typed_keys = set()
 
         for key in keys:
@@ -64,16 +65,41 @@ class PydanticFactory(ValidatorFactory):
 
         type_tree = self._build_tree(typed_keys)
 
-        typed_dict = self._to_typed_dict("TypeTree", type_tree)
+        model = create_model(
+            "Model",
+            **{
+                k: self._create_model(v)
+                for k, v in type_tree.items()
+            },
+            __config__=self.config
+        )
 
-        def validator(data):
-            py_.map_values_deep(type_tree, lambda v, k: None)
+        return lambda data: model(**data).model_dump()
 
-            py_.defaults_deep(data, type_tree)
+    def _create_model(self, type_or_tree):
+        if isinstance(type_or_tree, TypeTree):
+            return (
+                create_model(
+                    "Model",
+                    **{
+                        k: self._create_model(v)
+                        for k, v in type_or_tree.items()
+                    },
+                    __config__=self.config
+                ),
+                ...
+            )
 
-            return TypeAdapter(typed_dict, **self.config).validate_python(data)
+        if self._is_optional(type_or_tree):
+            default_value = None
+        else:
+            default_value = ...
 
-        return validator
+        return (type_or_tree, default_value)
+
+    def _is_optional(self, type_):
+        return t.get_origin(type_) is t.Union \
+            and type(None) in t.get_args(type_)
 
     def _build_tree(
             self,
@@ -133,30 +159,7 @@ class PydanticFactory(ValidatorFactory):
 
         return {}
 
-    def _to_typed_dict(
-            self,
-            root_name: str,
-            type_tree: TypeTree,
-    ) -> t.Type:
-        """Wrap keys in TypedDict named `root_name` recursively."""
 
-        try:
-            tree_items = type_tree.items()
-        except AttributeError as e:
-            _error_msg = ["The argument `type_tree` must be a `dict`. ",
-                          "Value of `type_tree`:\n",
-                          repr(type_tree)]
-            raise AttributeError("".join(_error_msg)) from e
-
-        typed_subdicts = {}
-
-        for k, v in tree_items:
-            if isinstance(v, dict):
-                typed_subdicts[k] = self._to_typed_dict(str(k), v)
-            else:
-                typed_subdicts[k] = v
-
-        return TypedDict(root_name, typed_subdicts)  # type: ignore
-
-
-validator_factory: ValidatorFactory = PydanticFactory()
+validator_factory: ValidatorFactory = PydanticFactory(
+    config=ConfigDict(arbitrary_types_allowed=True)
+)
