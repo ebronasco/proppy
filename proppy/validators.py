@@ -60,14 +60,23 @@ class TypeValidatorFactory(ValidatorFactory):
             for key in typed_keys:
                 value = py_.get(data, str(key), default=key.get_default())
 
-                if not rt.isa(value, key.get_type()):
-                    validation_errors[str(key)] = {
-                        "expected": key.get_type(),
-                        "received": type(value),
-                        "value": value,
-                    }
+                try:
+                    if not rt.isa(value, key.get_type()):
+                        validation_errors[str(key)] = {
+                            "expected": key.get_type(),
+                            "received": type(value),
+                            "value": value,
+                        }
 
-                    continue
+                        continue
+
+                # ignore type check if the type is not supported
+                except NotImplementedError:
+                    pass
+
+                # ignore type check if the ForwardRef is not resolved
+                except RuntimeError:
+                    pass
 
                 py_.set_(validated_data, str(key), value)
 
