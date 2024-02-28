@@ -1,7 +1,7 @@
 """The `Operation` class and helper functions."""
 
 from abc import ABC, abstractmethod
-from inspect import getfullargspec
+from inspect import signature, Parameter
 
 import typing as t
 
@@ -31,6 +31,12 @@ LetAlias = t.Union[
 ]
 
 
+def is_optional(type_) -> bool:
+    """Check if a type is optional."""
+    return getattr(type_, "__origin__", None) is t.Union and \
+        type(None) in type_.__args__
+
+
 def input_keys_from_callable(
         func: t.Callable,
         start_at: t.Optional[int] = 0,
@@ -56,9 +62,29 @@ def input_keys_from_callable(
 
     ```
     """
-    argspec = getfullargspec(func)
-    args = argspec.args[start_at:]
-    return set(Typed(k, argspec.annotations.get(k, t.Any)) for k in args)
+
+    args = list(signature(func).parameters.items())
+
+    input_keys: t.Set[Key] = set()
+    for k, v in args[start_at:]:
+        name = k
+
+        if v.annotation is Parameter.empty:
+            type_ = t.Any
+        else:
+            type_ = v.annotation
+
+        if v.default is Parameter.empty:
+            default = None
+        else:
+            default = v.default
+
+            if not is_optional(type_):
+                type_ = t.Union[type_, type(None)]
+
+        input_keys.add(Typed(name, type_, default))
+
+    return input_keys
 
 
 class Operation(ABC):
