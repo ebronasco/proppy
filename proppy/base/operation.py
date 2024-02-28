@@ -5,6 +5,8 @@ from inspect import getfullargspec
 
 import typing as t
 
+from pprint import pformat
+
 import pydash as py_
 
 from ..validators import validator_factory
@@ -132,9 +134,9 @@ class Operation(ABC):
                 "Error occured in the operation:",
                 repr(self),
                 "Input:",
-                repr(inputs),
+                pformat(inputs),
                 "doesn't match the input keys",
-                repr(self.input_keys)
+                pformat(self.input_keys)
             ])
             raise TypeError(_error_msg) from e
 
@@ -150,9 +152,9 @@ class Operation(ABC):
                 "Error occured in the operation:",
                 repr(self),
                 "Output",
-                repr(outputs),
+                pformat(outputs),
                 "doesn't match the output keys",
-                repr(self.output_keys)
+                pformat(self.output_keys)
             ])
             raise TypeError(_error_msg) from e
 

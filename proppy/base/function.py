@@ -27,7 +27,7 @@ def operation(
     >>> @operation({Typed("res.a", float)})
     ... def add(s, x, y):
     ...     return {"res": {"a": x + y}}
-    >>> add(x=1, y=2)
+    >>> add(x=1.0, y=2)
     {'res': {'a': 3.0}}
 
     """
@@ -51,7 +51,7 @@ class Function(Operation):
     >>> from ..keys import Typed
     >>> add = lambda s, x, y: {'res': {'a': x + y}}
     >>> op = Function(add, {Typed("res.a", float)})
-    >>> op(x=1, y=2)
+    >>> op(x=1.0, y=2)
     {'res': {'a': 3.0}}
 
     ```
