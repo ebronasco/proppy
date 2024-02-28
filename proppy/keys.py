@@ -52,7 +52,7 @@ class Typed(CustomKey):
         self.name = name
         self.type_ = type_
 
-        if not rt.isa(defualt, type_):
+        if default is not None and not rt.isa(default, type_):
             _error_msg = \
                 f"The default value must be of type {type_}. Got {default}."
             raise TypeError(_error_msg)
