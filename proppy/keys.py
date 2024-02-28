@@ -43,12 +43,18 @@ class CustomKey(ABC):
 class Typed(CustomKey):
     """A custom key that accepts values of a specific type."""
 
-    def __init__(self, name: str, type_):
+    def __init__(
+            self,
+            name: str,
+            type_=t.Any,
+            default=None,
+    ):
         self.name = name
         self.type_ = type_
+        self.default = default
 
     def __repr__(self):
-        return f"{self.name}: {self.type_}"
+        return f"{self.name}: {self.type_} = {self.default}"
 
     def __str__(self):
         return self.name
@@ -57,6 +63,11 @@ class Typed(CustomKey):
         """Return the type of the key."""
 
         return self.type_
+
+    def get_default(self):
+        """Return the default value of the key."""
+
+        return self.default
 
     def match(self, other):
         """
